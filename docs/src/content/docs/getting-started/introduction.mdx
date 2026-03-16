@@ -1,0 +1,54 @@
+---
+title: Introduction
+description: What Sigilry is, when to use it, and how the pieces fit.
+---
+
+Sigilry is a chain-agnostic dApp infrastructure library for connecting dApps to wallet extensions via a typed JSON-RPC protocol. It focuses on predictable contracts, runtime validation, and developer ergonomics.
+
+## When to use Sigilry
+
+Use Sigilry if you need:
+
+- A consistent dApp to wallet interface (`window.canton`).
+- Type-safe JSON-RPC calls with OpenRPC-backed schemas.
+- React hooks that mirror wagmi-style ergonomics.
+- A CLI to generate TypeScript types from DAML DARs.
+
+## Core ideas
+
+- The wallet extension injects a provider at `window.canton`.
+- dApps send JSON-RPC requests like `status`, `connect`, and `listAccounts`.
+- Responses are validated against generated Zod schemas.
+- Events like `accountsChanged` and `txChanged` are delivered through provider events.
+
+## Packages at a glance
+
+- `@sigilry/dapp`: Protocol, provider interface, transport, client and server.
+- `@sigilry/react`: `CantonReactProvider` and hooks built on `@tanstack/react-query`.
+- `@sigilry/cli`: Codegen for DAML contract TypeScript types.
+
+## Prerequisites
+
+- Node.js 18 or newer.
+- Yarn package manager.
+- A Sigilry-compatible wallet extension (for example, Send Wallet).
+- For React apps: React 18+ and `@tanstack/react-query`.
+
+If you want a self-contained local environment without a browser extension dependency,
+start with the [Demo App](../demo-app/).
+
+## Minimal provider usage
+
+```ts
+async function checkStatus() {
+  if (!window.canton) {
+    throw new Error("Canton provider not available");
+  }
+
+  const status = await window.canton.request({ method: "status" });
+  console.log("Connected:", status.isConnected);
+  return status;
+}
+
+checkStatus();
+```

@@ -1,0 +1,8 @@
+# Allowed hosts for Astro preview server (CLI --allowed-hosts flag)
+# Used by: yarn --cwd docs preview:network (via npm script)
+
+# Option 1: Use Tailscale hostname (auto-detected)
+export DOCS_ALLOWED_HOSTS="$(tailscale status --json 2>/dev/null | jq -r '.Self.DNSName // empty' | sed 's/\.$//')"
+
+# Option 2: Static hostname
+# export DOCS_ALLOWED_HOSTS="your-hostname.example.com"

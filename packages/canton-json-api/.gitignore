@@ -1,0 +1,3 @@
+.canton/
+openapi-ts-error-*.log
+src/generated/index.ts

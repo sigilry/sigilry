@@ -1,0 +1,10 @@
+name = "sigilry-docs"
+main = "src/worker.ts"
+compatibility_date = "2025-01-01"
+routes = [{ pattern = "sigilry.org", custom_domain = true }]
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "404-page"
+run_worker_first = true

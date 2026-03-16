@@ -1,0 +1,45 @@
+{
+  "name": "sigilry",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "examples/*",
+    "docs"
+  ],
+  "scripts": {
+    "verify:pre-push": "yarn check",
+    "check": "yarn typecheck && yarn lint && yarn format:check && yarn knip && yarn build && yarn test",
+    "build": "turbo run build --filter=!@sigilry/docs --filter=!@sigilry/demo-app",
+    "test": "turbo run test --filter=!@sigilry/docs --filter=!@sigilry/demo-app",
+    "typecheck": "tsgo --project tsconfig.json",
+    "typecheck:tsc": "turbo run typecheck",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint --fix .",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "knip": "knip",
+    "jscpd": "jscpd .",
+    "check-deps": "check-dependency-version-consistency",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "turbo run build --filter=!@sigilry/docs --filter=!@sigilry/demo-app && changeset publish",
+    "prepare": "lefthook install"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.0",
+    "@typescript/native-preview": "^7.0.0-dev.20260116.1",
+    "check-dependency-version-consistency": "^5.0.1",
+    "jscpd": "^4.0.7",
+    "knip": "^5.81.0",
+    "lefthook": "^2.0.15",
+    "oxfmt": "^0.24.0",
+    "oxlint": "^1.39.0",
+    "turbo": "^2.3.0",
+    "typescript": "^5.8.3"
+  },
+  "resolutions": {
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "packageManager": "yarn@4.9.1+sha512.f95ce356460e05be48d66401c1ae64ef84d163dd689964962c6888a9810865e39097a5e9de748876c2e0bf89b232d583c33982773e9903ae7a76257270986538"
+}

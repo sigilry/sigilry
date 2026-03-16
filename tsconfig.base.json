@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "rootDir": ".",
+    "importHelpers": false,
+    "allowJs": false,
+    "allowSyntheticDefaultImports": true,
+    "downlevelIteration": true,
+    "esModuleInterop": true,
+    "preserveSymlinks": true,
+    "incremental": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "forceConsistentCasingInFileNames": true,
+    "noEmitOnError": false,
+    "noImplicitAny": false,
+    "noImplicitReturns": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "useUnknownInCatchVariables": false,
+    "preserveConstEnums": true,
+    "removeComments": false,
+    "strict": true,
+    "skipLibCheck": true,
+    "sourceMap": false,
+    "target": "ESNext",
+    "types": ["node"],
+    "jsx": "react-jsx",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "resolveJsonModule": true
+  },
+  "exclude": ["node_modules", "dist"],
+  "typeAcquisition": {
+    "enable": true
+  }
+}

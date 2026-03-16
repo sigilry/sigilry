@@ -1,0 +1,140 @@
+---
+title: "@sigilry/dapp"
+description: Core provider, RPC client and server, message schemas, and transports.
+---
+
+`@sigilry/dapp` is the core package for dApp to wallet extension communication. It provides the provider interface, JSON-RPC utilities, transport abstractions, and Zod schemas generated from OpenRPC.
+
+## Install
+
+```bash
+yarn add @sigilry/dapp
+```
+
+## Provider usage (dApp)
+
+The wallet extension injects a provider at `window.canton` that follows an EIP-1193 style API.
+
+```ts
+async function connect() {
+  const status = await window.canton.request({ method: "status" });
+  if (!status.isConnected) {
+    await window.canton.request({ method: "connect" });
+  }
+
+  const accounts = await window.canton.request({ method: "listAccounts" });
+  console.log(accounts);
+  return accounts;
+}
+
+const accounts = await window.canton.request({ method: "listAccounts" });
+console.log(accounts);
+```
+
+## Typed client usage (custom transport)
+
+```ts
+import { createCantonClient, WindowTransport } from "@sigilry/dapp";
+
+async function getStatus() {
+  const transport = new WindowTransport(window, { timeout: 30000 });
+  const client = createCantonClient(transport);
+  return await client.status();
+}
+
+getStatus().then(console.log);
+```
+
+## Extension server usage
+
+```ts
+import {
+  createCantonServer,
+  createStubHandlers,
+  isSpliceMessageEvent,
+  jsonRpcResponse,
+  WalletEvent,
+} from "@sigilry/dapp";
+
+const server = createCantonServer({
+  ...createStubHandlers(),
+  status: async () => ({
+    kernel: { id: "send-extension", clientType: "browser" },
+    isConnected: true,
+    isNetworkConnected: true,
+  }),
+  connect: async () => ({
+    kernel: { id: "send-extension", clientType: "browser" },
+    isConnected: true,
+    isNetworkConnected: true,
+  }),
+  disconnect: async () => null,
+  getActiveNetwork: async () => ({ networkId: "canton:localnet" }),
+  listAccounts: async () => [],
+  getPrimaryAccount: async () => ({
+    primary: true,
+    partyId: "alice::1220abc123",
+    status: "allocated",
+    hint: "alice",
+    publicKey: "ed25519:abc123",
+    namespace: "1220abc123",
+    networkId: "canton:localnet",
+    signingProviderId: "passkey",
+  }),
+  prepareExecute: async () => null,
+  prepareExecuteAndWait: async () => ({
+    tx: {
+      status: "executed",
+      commandId: "cmd-123",
+      payload: { updateId: "update-1", completionOffset: 1 },
+    },
+  }),
+  signMessage: async () => ({ signature: "base64-signature" }),
+  ledgerApi: async () => ({ response: "" }),
+});
+
+window.addEventListener("message", async (event) => {
+  if (!isSpliceMessageEvent(event)) return;
+  if (event.data.type !== WalletEvent.SPLICE_WALLET_REQUEST) return;
+
+  const response = await server.handleRequest(event.data.request.method, event.data.request.params);
+
+  window.postMessage(
+    {
+      type: WalletEvent.SPLICE_WALLET_RESPONSE,
+      response: jsonRpcResponse(event.data.request.id, response),
+    },
+    "*",
+  );
+});
+```
+
+## Key exports
+
+- `CANTON_DAPP_API_VERSION`
+- `SpliceProviderBase`, `SpliceProvider`
+- `WindowTransport`
+- `createCantonClient`, `createCantonServer`, `createStubHandlers`
+- `WalletEvent`, `isSpliceMessage`, `isSpliceMessageEvent`
+- `jsonRpcRequest`, `jsonRpcResponse`
+- `RpcErrorCode`, `rpcError`, `RpcClientError`
+
+## Generated schemas
+
+Zod schemas are generated from OpenRPC specifications and exposed under `@sigilry/dapp/schemas`:
+
+```ts
+import {
+  StatusEventSchema,
+  JsPrepareSubmissionRequestSchema,
+  type StatusEvent,
+} from "@sigilry/dapp/schemas";
+
+const status = StatusEventSchema.parse(data);
+```
+
+Regenerate schemas after spec updates:
+
+```bash
+yarn workspace @sigilry/dapp codegen
+```

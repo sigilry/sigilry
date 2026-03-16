@@ -1,0 +1,34 @@
+module TodoList where
+
+template TodoItem
+  with
+    owner : Party
+    description : Text
+    completed : Bool
+  where
+    signatory owner
+
+    choice Complete : ContractId TodoItem
+      controller owner
+      do create this with completed = True
+
+    choice Remove : ()
+      controller owner
+      do return ()
+
+-- TodoList is a factory contract for TodoItem instances.
+template TodoList
+  with
+    owner : Party
+  where
+    signatory owner
+
+    nonconsuming choice AddItem : ContractId TodoItem
+      with
+        description : Text
+      controller owner
+      do
+        create TodoItem with
+          owner = owner
+          description = description
+          completed = False

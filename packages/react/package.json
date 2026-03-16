@@ -1,0 +1,67 @@
+{
+  "name": "@sigilry/react",
+  "version": "1.0.3",
+  "description": "React hooks and context for @sigilry/dapp",
+  "keywords": [
+    "blockchain",
+    "context",
+    "dapp",
+    "hooks",
+    "provider",
+    "react",
+    "wallet",
+    "web3"
+  ],
+  "homepage": "https://sigilry.org",
+  "bugs": {
+    "url": "https://github.com/sigilry/sigilry/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sigilry/sigilry.git",
+    "directory": "packages/react"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "module": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "zshy",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sigilry/canton-json-api": "^1.0.1",
+    "@sigilry/dapp": "^1.0.1",
+    "@tanstack/react-query": "^5.79.0",
+    "json-bigint": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/json-bigint": "^1",
+    "@types/react": "^19.0.1",
+    "react": "^19.0.0",
+    "typescript": "^5.8.3",
+    "zshy": "^0.7.0"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  },
+  "zshy": {
+    "exports": {
+      ".": "./src/index.ts"
+    },
+    "cjs": false
+  }
+}

@@ -1,0 +1,102 @@
+---
+title: Demo App
+description: A guided walkthrough of the Sigilry demo app and how it mirrors a real Canton dApp flow.
+---
+
+The Sigilry demo app is a **self-contained reference implementation** that shows how a dApp talks to a wallet
+over the Canton network using typed JSON-RPC and the `@sigilry/react` hooks. It pairs a dApp pane with a wallet
+simulator pane so you can see the full request -> approval -> ledger flow.
+
+## Canton onboarding path
+
+If you are new to Canton, follow this order:
+
+1. **DAML contract model** (`examples/demo-app/daml/TodoList.daml`)
+2. **DAR + TypeScript generation** (`(cd examples/demo-app && dpm build -o dars/demo-todo-package-0.0.1.dar)` then `yarn --cwd examples/demo-app setup`)
+3. **React + provider integration** (`examples/demo-app/src/**` using `@sigilry/react`)
+
+This mirrors real Canton projects: contract model first, then typed client bindings, then UI and wallet flow.
+
+## Why it matters
+
+- Demonstrates the canonical `window.canton` flow in a safe, local environment.
+- Uses the same hooks and provider patterns you would use in production.
+- Makes approvals and `txChanged` events visible so the data flow is easy to follow.
+
+## Quick start (demo app)
+
+From the repo root:
+
+```bash
+nix develop
+yarn install
+yarn --cwd examples/demo-app dev
+```
+
+`yarn --cwd examples/demo-app dev` runs `setup` first (builds dependencies and regenerates bindings), then starts:
+
+- the local Canton sandbox bootstrap flow (`yarn dev:ledger`)
+- the Vite frontend (`yarn dev:frontend`)
+
+Open `http://localhost:5173` and:
+
+1. Click **Connect wallet**.
+2. Click **Create TodoList** (if no active factory exists).
+3. Add a todo and approve the request in the wallet pane.
+4. Observe the ledger update and the `txChanged` log.
+
+## Verify startup success
+
+After `yarn --cwd examples/demo-app dev`, you should see:
+
+- Frontend available at `http://localhost:5173`.
+- Wallet pane status transitions from loading to ready.
+- Connect button works and account details appear.
+- Terminal ledger process remains running without immediate crash.
+
+If you changed contracts and want to refresh the committed DAR first:
+
+```bash
+(cd examples/demo-app && dpm build -o dars/demo-todo-package-0.0.1.dar)
+yarn --cwd examples/demo-app setup
+```
+
+## Useful logs and files
+
+- Ledger runtime logs: `examples/demo-app/log/canton.log`
+- Bootstrap logs: `examples/demo-app/log/canton-bootstrap.log`
+- Bootstrap stderr: `examples/demo-app/log/bootstrap-stderr.log`
+- Frontend debug logs: browser devtools console (`console.debug`)
+
+## What the panes represent
+
+- **Left pane**: the dApp UI using `@sigilry/react` hooks (`useConnect`, `useAccounts`, `useSubmitCommand`).
+- **Right pane**: an in-browser wallet simulator that queues approvals and emits provider events.
+
+## Flow walkthrough
+
+- **Connect wallet**: `useConnect` issues `request({ method: "connect" })` and loads accounts.
+- **Create todo**: `useExerciseChoice` calls `TodoList.AddItem`; the wallet pane receives an approval request.
+- **Approve**: mock wallet resolves request, mock ledger applies command, provider emits `txChanged`.
+- **Refresh UI**: `useActiveContracts` picks up updated contracts and re-renders todo items.
+
+## Nix-first tooling notes
+
+- The workspace flake pins toolchain inputs for repeatable `dpm` and codegen behavior.
+- Demo scripts call `nix develop ../.. --command ...`, so DAML/codegen commands run with the same toolchain.
+- Keep DAML SDK and generated bindings in sync by rerunning `(cd examples/demo-app && dpm build -o dars/demo-todo-package-0.0.1.dar)` and then `yarn --cwd examples/demo-app setup` after contract edits.
+
+## First-run troubleshooting
+
+- `Ed25519 unsupported`: use localhost/HTTPS and a browser with Web Crypto Ed25519.
+- `No accounts loaded`: connect wallet first; account events are emitted after connect.
+- No contract updates: rebuild DAR + regenerate bindings (`setup`), then reload the app.
+
+## Learn more
+
+- [Quick Start](../quick-start/): how to wire a provider and connect.
+- [RPC Protocol](../../concepts/rpc-protocol/): typed JSON-RPC requests and events.
+- [@sigilry/react](../../packages/react/): hook reference and usage patterns.
+
+For the full walkthrough, see the repository guide in
+[examples/demo-app/README.md](https://github.com/sigilry/sigilry/blob/main/examples/demo-app/README.md).

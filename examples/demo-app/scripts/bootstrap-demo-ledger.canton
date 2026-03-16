@@ -1,0 +1,83 @@
+// Bootstrap script for the demo-app Canton sandbox.
+// Provisions party, user, and rights so that command submissions succeed
+// on first attempt without UNKNOWN_INFORMEES.
+//
+// Synchronizer setup and DAR upload are handled by the `sandbox` subcommand;
+// this script only covers identity provisioning.
+//
+// All operations are guarded by try/catch so the script is safe to re-run
+// on a sandbox that was already bootstrapped (idempotent startup).
+
+// ---------------------------------------------------------------------------
+// 1. Party provisioning
+// ---------------------------------------------------------------------------
+val partyHint = sys.env.getOrElse("VITE_LEDGER_PARTY_ID", "Alice")
+
+val partyId: com.digitalasset.canton.topology.PartyId = try {
+  val details = sandbox.ledger_api.parties.allocate(partyHint)
+  println(s"[bootstrap] Allocated party: ${details.party}")
+  details.party
+} catch {
+  case _: Exception =>
+    println(s"[bootstrap] Party '${partyHint}' already exists, looking up...")
+    val all = sandbox.ledger_api.parties.list()
+    val found = all.find { d =>
+      d.party.toProtoPrimitive.startsWith(partyHint + "::")
+    }
+    found match {
+      case Some(d) =>
+        println(s"[bootstrap] Found existing party: ${d.party}")
+        d.party
+      case None =>
+        throw new RuntimeException(
+          s"[bootstrap] Party '${partyHint}' allocation failed and lookup returned nothing"
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 2. User provisioning
+// ---------------------------------------------------------------------------
+val userId = sys.env.getOrElse("VITE_LEDGER_USER_ID", "ledger-api-user")
+
+try {
+  sandbox.ledger_api.users.create(
+    id = userId,
+    actAs = Set(partyId),
+    readAs = Set(partyId),
+    primaryParty = Some(partyId)
+  )
+  println(s"[bootstrap] Created user: ${userId}")
+} catch {
+  case _: Exception =>
+    println(s"[bootstrap] User '${userId}' already exists, ensuring rights...")
+}
+
+// ---------------------------------------------------------------------------
+// 3. Rights grant (idempotent)
+// ---------------------------------------------------------------------------
+try {
+  sandbox.ledger_api.users.rights.grant(
+    userId,
+    actAs = Set(partyId),
+    readAs = Set(partyId)
+  )
+  println(s"[bootstrap] Granted rights on '${userId}' for party '${partyId}'")
+} catch {
+  case _: Exception =>
+    println(s"[bootstrap] Rights grant skipped (already present or error)")
+}
+
+// ---------------------------------------------------------------------------
+// 4. Readiness banner
+// ---------------------------------------------------------------------------
+println("")
+println("=" * 60)
+println(s"  DEMO LEDGER READY")
+println(s"  Party : ${partyId}")
+println(s"  User  : ${userId}")
+println("=" * 60)
+println("")
+
+// Exit immediately (do not enter interactive console)
+sys.exit(0)

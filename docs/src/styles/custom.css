@@ -1,0 +1,384 @@
+/* Sigilry Custom Theme
+ * Aesthetic: Luxury/refined - "the art of signing"
+ * Gold key mark with dark, sophisticated backgrounds
+ */
+
+/* ===== FONTS ===== */
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap");
+
+:root {
+  /* Typography - DM Sans: geometric, modern, distinctive */
+  --sl-font: "DM Sans", system-ui, sans-serif;
+  --sl-font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Gold accent scale - derived from logo gradient */
+  --sl-color-accent-low: #3d2e0a;
+  --sl-color-accent: #f3b73e;
+  --sl-color-accent-high: #f9d976;
+
+  /* Link color uses accent-high for visibility on dark bg */
+  --sl-color-text-accent: var(--sl-color-accent-high);
+  /* Button text on gold bg needs dark color */
+  --sl-color-bg-accent: #f3b73e;
+}
+
+/* ===== DARK THEME (Default) ===== */
+:root {
+  /* Rich dark backgrounds with warm undertone */
+  --sl-color-bg: #0d0b08;
+  --sl-color-bg-nav: #13110c;
+  --sl-color-bg-sidebar: #0d0b08;
+
+  /* Refined gray scale with warm tint */
+  --sl-color-white: #faf8f5;
+  --sl-color-gray-1: #e8e4dd;
+  --sl-color-gray-2: #c4bfb4;
+  --sl-color-gray-3: #9a9488;
+  --sl-color-gray-4: #6b665c;
+  --sl-color-gray-5: #3d3a33;
+  --sl-color-gray-6: #1f1d18;
+  --sl-color-black: #0d0b08;
+
+  /* Subtle gold-tinted hairlines */
+  --sl-color-hairline-light: rgba(243, 183, 62, 0.08);
+  --sl-color-hairline: rgba(243, 183, 62, 0.15);
+  --sl-color-hairline-shade: rgba(243, 183, 62, 0.25);
+
+  /* Code blocks */
+  --sl-color-bg-inline-code: rgba(243, 183, 62, 0.1);
+}
+
+/* ===== LIGHT THEME ===== */
+[data-theme="light"] {
+  /* Warm cream backgrounds */
+  --sl-color-bg: #fdfbf7;
+  --sl-color-bg-nav: #f5f2eb;
+  --sl-color-bg-sidebar: #faf8f3;
+
+  /* Proper light mode gray scale (light to dark) */
+  --sl-color-white: #fdfbf7;
+  --sl-color-gray-1: #f0ede5;
+  --sl-color-gray-2: #d9d4c8;
+  --sl-color-gray-3: #a8a295;
+  --sl-color-gray-4: #706b5f;
+  --sl-color-gray-5: #4a463c;
+  --sl-color-gray-6: #2a2720;
+  --sl-color-black: #1a1710;
+
+  /* Darker gold for better contrast on light bg */
+  --sl-color-accent-low: #fef7e6;
+  --sl-color-accent: #c77d00;
+  --sl-color-accent-high: #9a6100;
+
+  --sl-color-text-accent: var(--sl-color-accent); /* Dark gold for links on light bg */
+  --sl-color-bg-accent: #c77d00;
+
+  /* Subtle warm hairlines */
+  --sl-color-hairline-light: rgba(154, 97, 0, 0.08);
+  --sl-color-hairline: rgba(154, 97, 0, 0.15);
+  --sl-color-hairline-shade: rgba(154, 97, 0, 0.25);
+
+  --sl-color-bg-inline-code: rgba(199, 125, 0, 0.1);
+}
+
+/* ===== COMPONENT REFINEMENTS ===== */
+
+/* Site title in header - ensure visibility */
+.site-title {
+  color: var(--sl-color-white) !important;
+  font-weight: 600;
+}
+
+.site-title span {
+  color: var(--sl-color-white) !important;
+}
+
+/* Logo sizing in nav */
+.site-title img {
+  height: 2rem;
+  width: auto;
+}
+
+/* Header social icons - ensure visibility */
+.social-icons a {
+  color: var(--sl-color-gray-2);
+}
+
+.social-icons a:hover {
+  color: var(--sl-color-accent);
+}
+
+/* Sidebar section headers - better contrast */
+.sidebar-content summary,
+.sidebar-content > ul > li > details > summary {
+  color: var(--sl-color-white);
+  font-weight: 600;
+}
+
+/* Sidebar links - better readability */
+.sidebar-content a {
+  color: var(--sl-color-gray-2);
+}
+
+.sidebar-content a:hover {
+  color: var(--sl-color-accent-high);
+}
+
+/* Active sidebar item - gold accent bar */
+nav.sidebar a[aria-current="page"],
+.sidebar-content a[aria-current="page"] {
+  color: var(--sl-color-accent);
+  background: linear-gradient(90deg, var(--sl-color-accent) 0%, transparent 100%);
+  background-size: 3px 100%;
+  background-repeat: no-repeat;
+  background-position: left;
+}
+
+/* Inline code - gold tinted instead of red */
+:not(pre) > code {
+  background: var(--sl-color-bg-inline-code);
+  color: var(--sl-color-accent);
+  border: 1px solid var(--sl-color-hairline);
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+[data-theme="light"] :not(pre) > code {
+  background: rgba(199, 125, 0, 0.12);
+  color: #8a5a00;
+  border-color: rgba(199, 125, 0, 0.25);
+}
+
+/* ===== LIGHT MODE SPECIFIC FIXES ===== */
+[data-theme="light"] {
+  /* Main content text - dark for readability */
+  --sl-color-text: #2a2720;
+
+  /* Headings - ensure dark and readable */
+  --sl-color-white: #1a1710;
+}
+
+/* Light mode headings - explicit override */
+[data-theme="light"] h1,
+[data-theme="light"] h2,
+[data-theme="light"] h3,
+[data-theme="light"] h4,
+[data-theme="light"] h5,
+[data-theme="light"] h6 {
+  color: #1a1710;
+}
+
+[data-theme="light"] .content-panel h1 {
+  color: #1a1710 !important;
+}
+
+[data-theme="light"] .site-title,
+[data-theme="light"] .site-title span {
+  color: #1a1710 !important;
+}
+
+/* Sidebar section headers - target .group-label .large */
+[data-theme="light"] .group-label,
+[data-theme="light"] .group-label .large {
+  color: #1a1710 !important;
+  font-weight: 600;
+}
+
+/* Sidebar chevron icons */
+[data-theme="light"] .caret {
+  color: #706b5f;
+}
+
+/* Sidebar links */
+[data-theme="light"] .top-level a {
+  color: #4a463c;
+}
+
+[data-theme="light"] .top-level a:hover {
+  color: #9a6100;
+}
+
+[data-theme="light"] .top-level a[aria-current="page"],
+[data-theme="light"] .top-level a[aria-current="true"] {
+  color: #9a6100 !important;
+}
+
+[data-theme="light"] .social-icons a {
+  color: #4a463c;
+}
+
+[data-theme="light"] .social-icons a:hover {
+  color: #9a6100;
+}
+
+/* Right sidebar (table of contents) */
+[data-theme="light"] .right-sidebar a {
+  color: #4a463c;
+}
+
+[data-theme="light"] .right-sidebar a:hover {
+  color: #9a6100;
+}
+
+/* Hero section refinement */
+.hero {
+  background: radial-gradient(ellipse at top, rgba(243, 183, 62, 0.05) 0%, transparent 60%);
+}
+
+/* Code blocks - refined styling */
+.expressive-code {
+  --ec-brdRad: 8px;
+}
+
+/* Cards with subtle gold border on hover */
+.card:hover {
+  border-color: var(--sl-color-accent-low);
+}
+
+/* Buttons - gold accent */
+a.sl-flex:where(.astro-p3tqeiiy) {
+  transition: all 0.2s ease;
+}
+
+a.sl-flex:where(.astro-p3tqeiiy):hover {
+  border-color: var(--sl-color-accent);
+  color: var(--sl-color-accent-high);
+}
+
+/* Badge refinements */
+.sl-badge {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* Scrollbar styling (webkit) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--sl-color-gray-6);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--sl-color-gray-4);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--sl-color-accent);
+}
+
+/* Selection color */
+::selection {
+  background: rgba(243, 183, 62, 0.3);
+  color: var(--sl-color-white);
+}
+
+/* Focus states - gold ring */
+:focus-visible {
+  outline: 2px solid var(--sl-color-accent);
+  outline-offset: 2px;
+}
+
+/* ===== SEARCH (Starlight/Pagefind) ===== */
+/* Override Pagefind UI variables on #starlight__search for light mode */
+:root[data-theme="light"] #starlight__search {
+  /* Core Pagefind variables - use Starlight's light theme colors */
+  --pagefind-ui-primary: var(--sl-color-text);
+  --pagefind-ui-text: var(
+    --sl-color-gray-4
+  ); /* gray-4 (#706b5f) provides 4.8:1 contrast on bg for WCAG AA */
+  --pagefind-ui-background: var(--sl-color-bg);
+  --pagefind-ui-border: var(--sl-color-gray-2);
+  --pagefind-ui-tag: var(--sl-color-gray-1);
+}
+
+/* Light mode search dialog - must use !important to override Starlight's inline styles */
+[data-theme="light"] dialog {
+  background: var(--sl-color-bg) !important;
+  color: var(--sl-color-text) !important;
+}
+
+[data-theme="light"] dialog .dialog-frame {
+  background: var(--sl-color-bg) !important;
+}
+
+/* Light mode search button in header */
+[data-theme="light"] button[data-open-modal] {
+  background: var(--sl-color-gray-1);
+  color: var(--sl-color-gray-4);
+  border-color: var(--sl-color-gray-2);
+}
+
+[data-theme="light"] button[data-open-modal]:hover {
+  background: var(--sl-color-gray-2);
+  border-color: var(--sl-color-accent);
+}
+
+/* Keyboard shortcut badge */
+[data-theme="light"] button[data-open-modal] kbd {
+  background: var(--sl-color-bg);
+  color: var(--sl-color-gray-4);
+  border-color: var(--sl-color-gray-2);
+}
+
+/* Light mode search result cards - Starlight's Pagefind customizations */
+[data-theme="light"] .pagefind-ui__result-title {
+  background: var(--sl-color-gray-1) !important;
+  color: var(--sl-color-text) !important;
+}
+
+[data-theme="light"] .pagefind-ui__result-nested {
+  background: var(--sl-color-bg) !important;
+  color: var(--sl-color-text) !important;
+}
+
+[data-theme="light"] .pagefind-ui__result-link {
+  color: var(--sl-color-text) !important;
+}
+
+[data-theme="light"] .pagefind-ui__result-excerpt {
+  color: var(--sl-color-gray-4) !important;
+}
+
+/* ===== THEME SELECTOR DROPDOWN ===== */
+/* Light mode theme select styling */
+[data-theme="light"] starlight-theme-select select {
+  background: var(--sl-color-gray-1);
+  color: var(--sl-color-text);
+  border-color: var(--sl-color-gray-2);
+}
+
+[data-theme="light"] starlight-theme-select select:hover,
+[data-theme="light"] starlight-theme-select select:focus {
+  border-color: var(--sl-color-accent);
+}
+
+/* Style dropdown options (limited browser support - native selects are OS-controlled)
+ * For full theming control, consider creating a custom ThemeSelect component override
+ * See: https://starlight.astro.build/guides/overriding-components/
+ */
+[data-theme="light"] starlight-theme-select select option {
+  background: var(--sl-color-bg);
+  color: var(--sl-color-text);
+}
+
+[data-theme="light"] starlight-theme-select select option:checked,
+[data-theme="light"] starlight-theme-select select option:hover {
+  background: var(--sl-color-accent-low);
+  color: var(--sl-color-text);
+}
+
+/* Attempt to style the focus/selection highlight (browser support varies) */
+[data-theme="light"] starlight-theme-select select:focus option:checked {
+  background: linear-gradient(var(--sl-color-accent-low), var(--sl-color-accent-low));
+  box-shadow: 0 0 10px 100px var(--sl-color-accent-low) inset;
+}
+
+/* Label text color */
+[data-theme="light"] starlight-theme-select label {
+  color: var(--sl-color-gray-4);
+}

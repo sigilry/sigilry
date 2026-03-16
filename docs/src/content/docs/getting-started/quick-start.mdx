@@ -1,0 +1,133 @@
+---
+title: Quick Start
+description: Go from zero to a working connection in under 10 minutes.
+---
+
+This guide shows two paths:
+
+- **Vanilla**: Use `window.canton` directly with `@sigilry/dapp`.
+- **React**: Use hooks from `@sigilry/react`.
+
+## Before you start
+
+- Node.js 18+ and Yarn installed.
+- A Sigilry-compatible wallet extension available in your browser.
+- For React apps: `@tanstack/react-query`.
+
+No wallet extension yet? Run the local demo first:
+
+```bash
+nix develop
+yarn install
+yarn --cwd examples/demo-app dev
+```
+
+## 1. Install packages
+
+Vanilla:
+
+```bash
+yarn add @sigilry/dapp
+```
+
+React:
+
+```bash
+yarn add @sigilry/react @sigilry/dapp @tanstack/react-query
+```
+
+## 2. Verify the provider is available
+
+```ts
+if (!window.canton) {
+  throw new Error("Canton provider not available");
+}
+```
+
+## 3. Make your first request
+
+```ts
+async function connectAndListAccounts() {
+  if (!window.canton) {
+    throw new Error("Canton provider not available");
+  }
+
+  const status = await window.canton.request({ method: "status" });
+  if (!status.isConnected) {
+    await window.canton.request({ method: "connect" });
+  }
+
+  const accounts = await window.canton.request({ method: "listAccounts" });
+  console.log("Accounts:", accounts);
+  return accounts;
+}
+```
+
+## 4. React setup (recommended for React apps)
+
+```tsx
+import { CantonReactProvider } from "@sigilry/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+const queryClient = new QueryClient();
+
+export function AppRoot() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <CantonReactProvider>
+        <App />
+      </CantonReactProvider>
+    </QueryClientProvider>
+  );
+}
+```
+
+## 5. Connect and show accounts
+
+```tsx
+import { useAccounts, useConnect, useDisconnect } from "@sigilry/react";
+
+export function WalletPanel() {
+  const { connect, isPending: isConnecting } = useConnect();
+  const { disconnect, isPending: isDisconnecting } = useDisconnect();
+  const { data: accounts, isConnected } = useAccounts();
+
+  if (!isConnected) {
+    return (
+      <button onClick={connect} disabled={isConnecting}>
+        {isConnecting ? "Connecting..." : "Connect"}
+      </button>
+    );
+  }
+
+  return (
+    <div>
+      <button onClick={disconnect} disabled={isDisconnecting}>
+        Disconnect
+      </button>
+      <ul>
+        {accounts.map((account) => (
+          <li key={account.partyId}>{account.hint}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+## 6. What success looks like
+
+- Calling `status` returns a typed payload (no provider/runtime schema errors).
+- Connect action completes and `listAccounts` returns at least one account.
+- In React, the connect button transitions to a connected account view.
+
+## 7. Common first-run issues
+
+- `Canton provider not available`: wallet extension not installed/active on this page.
+- Connect appears to do nothing: check extension permission prompts and site access settings.
+- Empty accounts after connect: wallet may not have an active account on the current network.
+
+## 8. Next steps
+
+- Learn the protocol in [RPC Protocol](../../concepts/rpc-protocol/).
+- Explore package docs: [@sigilry/dapp](../../packages/dapp/), [@sigilry/react](../../packages/react/), [@sigilry/cli](../../packages/cli/).

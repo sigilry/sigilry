@@ -1,0 +1,185 @@
+name: Demo App CI
+
+on:
+  workflow_dispatch:
+    inputs:
+      daml_sdk_version:
+        description: "DAML SDK version (leave empty to use daml.yaml)"
+        required: false
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - "examples/demo-app/**"
+      - "packages/cli/**"
+      - "packages/dapp/**"
+      - "packages/react/**"
+      - "flake.nix"
+      - "flake.lock"
+      - "package.json"
+      - "yarn.lock"
+      - ".yarnrc.yml"
+      - ".yarn/patches/**"
+      - "turbo.json"
+      - ".github/workflows/demo-app-ci.yml"
+  pull_request:
+    paths:
+      - "examples/demo-app/**"
+      - "packages/cli/**"
+      - "packages/dapp/**"
+      - "packages/react/**"
+      - "flake.nix"
+      - "flake.lock"
+      - "package.json"
+      - "yarn.lock"
+      - ".yarnrc.yml"
+      - ".yarn/patches/**"
+      - "turbo.json"
+      - ".github/workflows/demo-app-ci.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  demo_pr_internal:
+    name: Demo CI (internal PR)
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/determinate-nix-action@89ab342bd48ff7318caf8d39d6a330c7b1df8f2f # v3
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+
+      - name: Warm Nix toolchain
+        run: nix develop --command bash -lc "node --version && corepack yarn --version && bun --version && dpm --version && java -version"
+
+      - name: Cache dependencies
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            .yarn/cache
+            .yarn/unplugged
+            .yarn/install-state.gz
+            node_modules
+            .turbo
+            ~/.cache/node/corepack
+          key: ${{ runner.os }}-deps-${{ hashFiles('yarn.lock', '.yarnrc.yml', '.yarn/patches/**', 'flake.lock') }}
+
+      - name: Cache DPM SDK artifacts
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.dpm/cache
+          key: ${{ runner.os }}-dpm-sdk-${{ hashFiles('examples/demo-app/daml.yaml', 'flake.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-dpm-sdk-
+
+      - name: Run demo integration checks in Nix devShell
+        run: |
+          nix develop --command bash -lc '
+            set -euo pipefail
+            export DPM_BIN="$(command -v dpm)"
+            "$DPM_BIN" --version
+            corepack yarn install --immutable
+            eval "$(corepack yarn node -e "const fs = require(\"node:fs\"); const { parse } = require(\"yaml\"); const c = parse(fs.readFileSync(\"examples/demo-app/daml.yaml\", \"utf8\")); if (!c?.[\"sdk-version\"]) { process.stderr.write(\"Missing sdk-version in daml.yaml\\n\"); process.exit(1); } if (!c?.name) { process.stderr.write(\"Missing name in daml.yaml\\n\"); process.exit(1); } if (!c?.version) { process.stderr.write(\"Missing version in daml.yaml\\n\"); process.exit(1); } console.log(\"DAML_YAML_SDK_VERSION=\" + c[\"sdk-version\"]); console.log(\"DAML_PKG_NAME=\" + c.name); console.log(\"DAML_PKG_VERSION=\" + c.version);")"
+            DAML_SDK_VERSION="${{ inputs.daml_sdk_version }}"
+            DAML_SDK_VERSION="${DAML_SDK_VERSION:-$DAML_YAML_SDK_VERSION}"
+            if [ -z "$DAML_SDK_VERSION" ]; then
+              echo "Unable to resolve DAML SDK version" >&2
+              exit 1
+            fi
+            echo "Installing DAML SDK version $DAML_SDK_VERSION"
+            "$DPM_BIN" install "$DAML_SDK_VERSION"
+            (
+              cd examples/demo-app
+              "$DPM_BIN" build -o "dars/${DAML_PKG_NAME}-${DAML_PKG_VERSION}.dar"
+            )
+            corepack yarn --cwd packages/cli build
+            corepack yarn --cwd packages/dapp build
+            corepack yarn --cwd packages/react build
+            corepack yarn --cwd examples/demo-app codegen
+            corepack yarn --cwd examples/demo-app typecheck
+            corepack yarn turbo run build --filter=@sigilry/demo-app
+          '
+
+  demo_main_trusted:
+    name: Demo CI (main trusted)
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/determinate-nix-action@89ab342bd48ff7318caf8d39d6a330c7b1df8f2f # v3
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+
+      - name: Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+
+      - name: Warm Nix toolchain
+        run: nix develop --command bash -lc "node --version && corepack yarn --version && bun --version && dpm --version && java -version"
+
+      - name: Cache dependencies
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            .yarn/cache
+            .yarn/unplugged
+            .yarn/install-state.gz
+            node_modules
+            .turbo
+            ~/.cache/node/corepack
+          key: ${{ runner.os }}-deps-${{ hashFiles('yarn.lock', '.yarnrc.yml', '.yarn/patches/**', 'flake.lock') }}
+
+      - name: Cache DPM SDK artifacts
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.dpm/cache
+          key: ${{ runner.os }}-dpm-sdk-${{ hashFiles('examples/demo-app/daml.yaml', 'flake.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-dpm-sdk-
+
+      - name: Run demo integration checks in Nix devShell
+        run: |
+          nix develop --command bash -lc '
+            set -euo pipefail
+            export DPM_BIN="$(command -v dpm)"
+            "$DPM_BIN" --version
+            corepack yarn install --immutable
+            eval "$(corepack yarn node -e "const fs = require(\"node:fs\"); const { parse } = require(\"yaml\"); const c = parse(fs.readFileSync(\"examples/demo-app/daml.yaml\", \"utf8\")); if (!c?.[\"sdk-version\"]) { process.stderr.write(\"Missing sdk-version in daml.yaml\\n\"); process.exit(1); } if (!c?.name) { process.stderr.write(\"Missing name in daml.yaml\\n\"); process.exit(1); } if (!c?.version) { process.stderr.write(\"Missing version in daml.yaml\\n\"); process.exit(1); } console.log(\"DAML_YAML_SDK_VERSION=\" + c[\"sdk-version\"]); console.log(\"DAML_PKG_NAME=\" + c.name); console.log(\"DAML_PKG_VERSION=\" + c.version);")"
+            DAML_SDK_VERSION="${{ inputs.daml_sdk_version }}"
+            DAML_SDK_VERSION="${DAML_SDK_VERSION:-$DAML_YAML_SDK_VERSION}"
+            if [ -z "$DAML_SDK_VERSION" ]; then
+              echo "Unable to resolve DAML SDK version" >&2
+              exit 1
+            fi
+            echo "Installing DAML SDK version $DAML_SDK_VERSION"
+            "$DPM_BIN" install "$DAML_SDK_VERSION"
+            (
+              cd examples/demo-app
+              "$DPM_BIN" build -o "dars/${DAML_PKG_NAME}-${DAML_PKG_VERSION}.dar"
+            )
+            corepack yarn --cwd packages/cli build
+            corepack yarn --cwd packages/dapp build
+            corepack yarn --cwd packages/react build
+            corepack yarn --cwd examples/demo-app codegen
+            corepack yarn --cwd examples/demo-app typecheck
+            corepack yarn turbo run build --filter=@sigilry/demo-app
+          '

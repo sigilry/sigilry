@@ -1,0 +1,17 @@
+{
+  "threshold": 5,
+  "reporters": ["console"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/.yarn/**",
+    "**/generated/**",
+    "**/coverage/**",
+    "**/__tests__/**",
+    "docs/.astro/**",
+    "docs/dist/**",
+    "yarn.lock"
+  ],
+  "absolute": true,
+  "gitignore": true
+}

@@ -1,0 +1,103 @@
+---
+title: Sigilry
+description: Chain-agnostic dApp infrastructure for wallet connections.
+---
+
+Sigilry is a chain-agnostic dApp infrastructure library that standardizes how dApps talk to wallet extensions. It provides a typed JSON-RPC protocol, validation schemas, and React hooks for fast integration.
+
+## Packages
+
+- `@sigilry/dapp`: Core provider, RPC client and server, message schemas, and transports.
+- `@sigilry/react`: React Query powered hooks and `CantonReactProvider`.
+- `@sigilry/cli`: CLI and programmatic API for generating TypeScript types from DAML DARs.
+- `@sigilry/canton-json-api`: Generated Canton JSON API v2 types and Zod schemas for typed ledger endpoint contracts.
+
+## New to Canton?
+
+Start with the [Demo App](getting-started/demo-app/) before package internals. It shows the full flow in one place:
+
+1. DAML templates and choices (`TodoList` factory + `TodoItem` contracts)
+2. DAR build and typed codegen via Sigilry CLI
+3. dApp-side React hooks calling a typed `window.canton` provider
+4. Event-driven wallet/ledger logs plus `txChanged` updates after approvals
+
+Fastest way to run it from the repo root:
+
+```bash
+nix develop
+yarn install
+yarn --cwd examples/demo-app dev
+```
+
+Choose your starting path:
+
+- Building a real dApp integration against an installed wallet extension: go to [Quick Start](getting-started/quick-start/).
+- Learning the full flow locally without extension setup: go to [Demo App](getting-started/demo-app/).
+
+## SDK Flow
+
+The provider injected at `window.canton` follows an EIP-1193 style pattern. Requests use typed, canonical
+method names from the OpenRPC schema, methods with void params omit the `params` field, and the provider
+emits `accountsChanged` and `txChanged` events to signal wallet and ledger state changes. See the
+[@sigilry/dapp](packages/dapp/) and [@sigilry/react](packages/react/) pages for the full contract.
+
+## Quick start
+
+- Start with the basics in [Introduction](getting-started/introduction/).
+- Follow the 10-minute integration in [Quick Start](getting-started/quick-start/).
+- Run the full newcomer flow in [Demo App](getting-started/demo-app/).
+- Go deeper in [Architecture](concepts/architecture/) and [RPC Protocol](concepts/rpc-protocol/).
+
+## CLI Codegen
+
+Use `sigilry init` to create `sigilry.config.ts`, then run `sigilry codegen` to generate TypeScript types.
+The CLI requires the DAML SDK so `dpm` is available, and it wraps `dpm codegen-alpha-typescript` under the
+hood. See the [@sigilry/cli](packages/cli/) page for the full configuration reference.
+
+## Minimal dApp request
+
+```ts
+async function connect() {
+  const status = await window.canton.request({ method: "status" });
+  if (!status.isConnected) {
+    await window.canton.request({ method: "connect" });
+  }
+
+  const accounts = await window.canton.request({ method: "listAccounts" });
+  console.log("Accounts:", accounts);
+  return accounts;
+}
+```
+
+## Ledger API Patterns
+
+`ledgerApi` requests map directly to Daml JSON Ledger API v2 endpoints. Hooks like `useLedgerApi` and
+`useActiveContracts` call `/v2/state/ledger-end` and `/v2/state/active-contracts` to resolve the current
+offset and fetch active contracts.
+
+```ts
+await window.canton.request({
+  method: "ledgerApi",
+  params: {
+    requestMethod: "GET",
+    resource: "/v2/state/ledger-end",
+  },
+});
+```
+
+## Architecture at a glance
+
+```
+dApp UI
+  -> window.canton (EIP-1193 style provider)
+  -> JSON-RPC (OpenRPC + Zod validation)
+  -> WindowTransport (postMessage)
+  -> Wallet extension (RPC server)
+  -> Canton Ledger API / DAML
+```
+
+## For AI agents
+
+- A concise integration summary is available at `llms.txt`.
+- All examples are copy-paste ready and include explicit method names.
+- Use the package pages for complete API coverage.

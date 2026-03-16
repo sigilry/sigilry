@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci_pr_internal:
+    name: CI (internal PR)
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/determinate-nix-action@89ab342bd48ff7318caf8d39d6a330c7b1df8f2f # v3
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+
+      - name: Warm Nix toolchain
+        run: nix develop --command bash -lc "node --version && corepack yarn --version && bun --version"
+
+      - name: Flake checks
+        run: nix flake check
+
+      - name: Cache dependencies
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            .yarn/cache
+            .yarn/unplugged
+            .yarn/install-state.gz
+            node_modules
+            .turbo
+            ~/.cache/node/corepack
+          key: ${{ runner.os }}-deps-${{ hashFiles('yarn.lock', '.yarnrc.yml', '.yarn/patches/**', 'flake.lock') }}
+
+      - name: Run CI checks in Nix devShell
+        run: |
+          nix develop --command bash -lc '
+            set -euo pipefail
+            corepack yarn install --immutable
+            corepack yarn workspace @sigilry/canton-json-api codegen:check
+            corepack yarn typecheck
+            corepack yarn lint
+            corepack yarn format:check
+            corepack yarn knip
+            corepack yarn build
+            corepack yarn test
+          '
+
+  ci_main_trusted:
+    name: CI (main trusted)
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/determinate-nix-action@89ab342bd48ff7318caf8d39d6a330c7b1df8f2f # v3
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+
+      - name: Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+
+      - name: Warm Nix toolchain
+        run: nix develop --command bash -lc "node --version && corepack yarn --version && bun --version"
+
+      - name: Flake checks
+        run: nix flake check
+
+      - name: Cache dependencies
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            .yarn/cache
+            .yarn/unplugged
+            .yarn/install-state.gz
+            node_modules
+            .turbo
+            ~/.cache/node/corepack
+          key: ${{ runner.os }}-deps-${{ hashFiles('yarn.lock', '.yarnrc.yml', '.yarn/patches/**', 'flake.lock') }}
+
+      - name: Run CI checks in Nix devShell
+        run: |
+          nix develop --command bash -lc '
+            set -euo pipefail
+            corepack yarn install --immutable
+            corepack yarn workspace @sigilry/canton-json-api codegen:check
+            corepack yarn typecheck
+            corepack yarn lint
+            corepack yarn format:check
+            corepack yarn knip
+            corepack yarn build
+            corepack yarn test
+          '

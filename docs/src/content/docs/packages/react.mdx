@@ -1,0 +1,130 @@
+---
+title: "@sigilry/react"
+description: React Query hooks and context for Canton wallet integration.
+---
+
+`@sigilry/react` provides React hooks and context for interacting with the Sigilry provider. It builds on `@sigilry/dapp` and uses `@tanstack/react-query` for async state.
+
+## Install
+
+```bash
+yarn add @sigilry/react @sigilry/dapp @sigilry/canton-json-api @tanstack/react-query
+```
+
+## Provider setup
+
+```tsx
+import { CantonReactProvider } from "@sigilry/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+const queryClient = new QueryClient();
+
+export function AppRoot() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <CantonReactProvider>
+        <App />
+      </CantonReactProvider>
+    </QueryClientProvider>
+  );
+}
+```
+
+## Connect and read accounts
+
+```tsx
+import { useAccounts, useActiveAccount, useConnect } from "@sigilry/react";
+
+export function WalletStatus() {
+  const { connect, isPending } = useConnect();
+  const { data: accounts, isConnected } = useAccounts();
+  const { data: activeAccount } = useActiveAccount();
+
+  if (!isConnected) {
+    return (
+      <button onClick={connect} disabled={isPending}>
+        {isPending ? "Connecting..." : "Connect"}
+      </button>
+    );
+  }
+
+  return (
+    <div>
+      <p>Active: {activeAccount?.hint ?? "Unknown"}</p>
+      <ul>
+        {accounts.map((account) => (
+          <li key={account.partyId}>{account.partyId}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+## Ledger API request
+
+```tsx
+import { useLedgerApi } from "@sigilry/react";
+import { zGetLedgerEndResponse } from "@sigilry/canton-json-api";
+
+export function LedgerEndButton() {
+  const { requestAsync, data, isPending } = useLedgerApi({
+    parse: zGetLedgerEndResponse.parse,
+  });
+
+  const fetchLedgerEnd = async () => {
+    await requestAsync({
+      requestMethod: "GET",
+      resource: "/v2/state/ledger-end",
+    });
+  };
+
+  return (
+    <div>
+      <button onClick={fetchLedgerEnd} disabled={isPending}>
+        Fetch ledger end
+      </button>
+      {data && <span>Offset: {String(data.data.offset)}</span>}
+    </div>
+  );
+}
+```
+
+## Session awareness
+
+```tsx
+import { useSession } from "@sigilry/react";
+
+export function SessionBadge() {
+  const { sessionState, timeRemainingFormatted, reauthenticate } = useSession();
+
+  return (
+    <div>
+      <span>Status: {sessionState.status}</span>
+      <span>Time remaining: {timeRemainingFormatted}</span>
+      {sessionState.status === "expiring_soon" && (
+        <button onClick={reauthenticate}>Refresh session</button>
+      )}
+    </div>
+  );
+}
+```
+
+## Key exports
+
+- `CantonReactProvider`, `useCanton`
+- `useConnect`, `useDisconnect`
+- `useAccounts`, `useActiveAccount`
+- `useLedgerApi`, `useLedgerEnd`, `useLedgerUpdates`
+- `useContractStream`, `useActiveContracts`, `useExerciseChoice`, `useSubmitCommand`
+- `useSession`, `parseJwt`
+
+## Connection state
+
+`useCanton()` exposes a discriminated union `connectionState`:
+
+- `disconnected`
+- `connecting`
+- `connected` (includes `accounts` and `networkId`)
+- `session_expired`
+- `error`

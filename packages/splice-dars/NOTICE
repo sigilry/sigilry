@@ -1,0 +1,20 @@
+This package redistributes selected DAR artifacts from the Splice project.
+
+Upstream project:
+- Repository: https://github.com/hyperledger-labs/splice
+- Release channel used for the bundled DARs:
+  https://github.com/digital-asset/decentralized-canton-sync/releases
+
+Current bundled source release:
+- Splice version: 0.5.14
+- Release artifact:
+  https://github.com/digital-asset/decentralized-canton-sync/releases/download/v0.5.14/0.5.14_splice-node.tar.gz
+- SHA256:
+  7ec972d2051d5e37975bfa50015cfd8057ee1925285465a165a1b9e9ce6881ab
+
+Licensing:
+- The package wrapper code, metadata, and extraction script are licensed MIT.
+- The bundled DAR artifacts in `dars/` are redistributed under Apache License 2.0.
+- No upstream NOTICE file was found in the inspected 0.5.14 release artifact on 2026-03-12.
+
+Sigilry contributors do not claim ownership of the bundled Splice DAR artifacts.

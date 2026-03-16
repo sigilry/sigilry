@@ -1,0 +1,42 @@
+# Caddy reverse proxy with content negotiation for LLM/agent optimization
+# Serves markdown when Accept: text/markdown is requested
+
+:3456 {
+	log {
+		output stdout
+		format console
+	}
+
+	# Skip static assets and special paths
+	@static {
+		path *.md *.txt *.js *.css *.png *.svg *.ico *.woff *.woff2
+		path /pagefind/* /_astro/*
+	}
+	handle @static {
+		reverse_proxy localhost:4000
+	}
+
+	# Content negotiation for doc pages (not root)
+	@wants_markdown {
+		header Accept *text/markdown*
+		not path /
+	}
+
+	handle @wants_markdown {
+		# Handle paths with trailing slash: /foo/bar/ -> /foo/bar.md
+		@has_trailing_slash path_regexp trail ^(.+)/$
+		rewrite @has_trailing_slash {re.trail.1}.md
+
+		# Handle paths without trailing slash: /foo/bar -> /foo/bar.md
+		@no_trailing_slash not path_regexp ^.+/$
+		@not_already_md not path *.md
+		rewrite @no_trailing_slash {path}.md
+
+		reverse_proxy localhost:4000
+	}
+
+	# Default: proxy as-is
+	handle {
+		reverse_proxy localhost:4000
+	}
+}

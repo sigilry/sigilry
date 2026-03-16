@@ -1,0 +1,33 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "rules": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "no-unused-vars": "error",
+    "no-console": "warn",
+    "eqeqeq": "error"
+  },
+  "ignorePatterns": [
+    "node_modules",
+    "dist",
+    ".yarn",
+    "coverage",
+    "**/generated/**",
+    "docs/.astro",
+    "docs/dist"
+  ],
+  "overrides": [
+    {
+      "files": ["**/__tests__/**", "**/*.test.*", "**/*.spec.*"],
+      "rules": {
+        "no-console": "off"
+      }
+    },
+    {
+      "files": ["**/cli/**", "**/scripts/**", "**/*.cli.ts"],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ]
+}

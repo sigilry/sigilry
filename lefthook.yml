@@ -1,0 +1,20 @@
+# Lefthook configuration
+# https://github.com/evilmartians/lefthook
+
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      glob: "*.{js,ts,tsx,mjs}"
+      exclude: "**/generated/**"
+      run: yarn oxlint {staged_files}
+    format-check:
+      glob: "*.{js,ts,tsx,mjs}"
+      exclude: "**/generated/**"
+      run: yarn oxfmt --check {staged_files}
+
+pre-push:
+  parallel: false
+  commands:
+    verify:
+      run: yarn verify:pre-push

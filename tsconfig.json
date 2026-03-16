@@ -1,0 +1,14 @@
+{
+  "files": [],
+  "compilerOptions": {
+    "outDir": "/tmp",
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "references": [
+    { "path": "packages/canton-json-api" },
+    { "path": "packages/dapp" },
+    { "path": "packages/react" },
+    { "path": "packages/cli" }
+  ]
+}

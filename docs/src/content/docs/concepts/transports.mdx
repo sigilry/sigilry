@@ -1,0 +1,68 @@
+---
+title: Transports
+description: The transport layer that moves JSON-RPC between dApps and wallets.
+---
+
+Transports are responsible for delivering JSON-RPC requests and responses between the dApp and the wallet extension.
+
+## Core interface
+
+```ts
+import type { RequestPayload, ResponsePayload } from "@sigilry/dapp/messages";
+
+export interface RpcTransport {
+  submit(payload: RequestPayload): Promise<ResponsePayload>;
+}
+```
+
+## WindowTransport
+
+`WindowTransport` uses `window.postMessage` for cross-context communication.
+
+```ts
+import { createCantonClient, WindowTransport } from "@sigilry/dapp";
+
+async function getStatus() {
+  const transport = new WindowTransport(window, {
+    timeout: 30000,
+    targetOrigin: "*",
+  });
+
+  const client = createCantonClient(transport);
+  return await client.status();
+}
+
+getStatus().then(console.log);
+```
+
+### Options
+
+- `timeout`: request timeout in milliseconds (default `30000`).
+- `targetOrigin`: `postMessage` target origin (default `*`).
+
+## Custom transports
+
+You can implement `RpcTransport` for other environments (HTTP, WebSocket, iframe bridges):
+
+```ts
+import type { RequestPayload, ResponsePayload } from "@sigilry/dapp/messages";
+import type { RpcTransport } from "@sigilry/dapp/transport";
+
+export class HttpTransport implements RpcTransport {
+  constructor(private readonly baseUrl: string) {}
+
+  async submit(payload: RequestPayload): Promise<ResponsePayload> {
+    const response = await fetch(`${this.baseUrl}/rpc`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    return (await response.json()) as ResponsePayload;
+  }
+}
+```

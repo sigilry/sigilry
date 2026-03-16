@@ -1,0 +1,41 @@
+---
+title: Architecture
+description: How Sigilry components fit together across dApp and wallet.
+---
+
+Sigilry defines a thin, typed layer between dApps and wallet extensions. The primary contract is JSON-RPC over a transport such as `postMessage`.
+
+## System diagram
+
+```
+dApp UI
+  -> @sigilry/react (hooks) or @sigilry/dapp (provider)
+  -> WindowTransport (postMessage)
+  -> Wallet extension (RPC server)
+  -> Canton Ledger API / DAML
+
+Developer tooling
+  -> @sigilry/cli (DAML DAR to TypeScript types)
+```
+
+## Responsibilities
+
+- **dApp**: Calls `window.canton.request({ method, params })` and reacts to events.
+- **Provider**: Implements EIP-1193 style `request` and event subscription.
+- **RPC server**: Validates params with Zod and routes to handlers.
+- **Transport**: Moves requests and responses between contexts.
+- **Schemas**: Generated from OpenRPC and used for runtime validation.
+
+## Data flow
+
+1. dApp sends JSON-RPC request to the provider.
+2. Transport serializes the message (for example, `postMessage`).
+3. Extension receives the request and routes it through `createCantonServer`.
+4. The server validates params and calls the handler.
+5. Response is returned to the dApp and validated by the client.
+
+## Versioning and specs
+
+- `CANTON_DAPP_API_VERSION` exposes the dApp API version in `@sigilry/dapp`.
+- OpenRPC specs live in `specs/` and `packages/dapp/api-specs/`.
+- Zod schemas are generated in `packages/dapp/src/generated`.

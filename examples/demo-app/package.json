@@ -1,0 +1,32 @@
+{
+  "name": "@sigilry/demo-app",
+  "version": "0.0.2",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "turbo run build --filter=@sigilry/demo-app^... && yarn codegen",
+    "dev": "yarn setup && concurrently -k -n ledger,frontend -c yellow,cyan \"yarn dev:ledger\" \"yarn dev:frontend\"",
+    "dev:ledger": "./scripts/dev-ledger.sh",
+    "dev:frontend": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "codegen": "sigilry codegen --config ./sigilry.config.ts"
+  },
+  "dependencies": {
+    "@sigilry/dapp": "workspace:*",
+    "@sigilry/react": "workspace:*",
+    "@tanstack/react-query": "^5.79.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@sigilry/cli": "workspace:*",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.1",
+    "@vitejs/plugin-react": "^4.6.0",
+    "concurrently": "^9.2.1",
+    "typescript": "^5.8.3",
+    "vite": "^5.4.14"
+  }
+}

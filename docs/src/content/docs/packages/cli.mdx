@@ -1,0 +1,76 @@
+---
+title: "@sigilry/cli"
+description: CLI and programmatic API for generating TypeScript from DAML DARs.
+---
+
+`@sigilry/cli` generates TypeScript types from DAML DAR files using `dpm codegen-alpha-typescript`.
+
+## Install
+
+```bash
+yarn add -D @sigilry/cli
+```
+
+## Initialize config
+
+```bash
+sigilry init
+```
+
+This creates a `sigilry.config.ts` file:
+
+```ts
+import { defineConfig } from "@sigilry/cli/config";
+
+export default defineConfig({
+  dars: ["./path/to/your.dar"],
+  output: "./src/generated",
+  cleanup: true,
+  watch: false,
+});
+```
+
+## Generate types
+
+```bash
+sigilry codegen
+```
+
+## Watch mode
+
+```bash
+sigilry codegen --watch
+```
+
+## Configuration reference
+
+`SigilryConfig` supports:
+
+- `dars`: array of DAR paths (required).
+- `output`: output directory (default `./src/generated`).
+- `cleanup`: clean output directory before generation (default `true`).
+- `watch`: enable watch mode (default `false`).
+
+## Programmatic API
+
+```ts
+import { generateTypes, loadConfig } from "@sigilry/cli";
+
+async function generate() {
+  const { config } = await loadConfig();
+  const result = await generateTypes(config);
+
+  if (!result.success) {
+    throw new Error(result.error);
+  }
+
+  return result;
+}
+
+generate();
+```
+
+## Requirements
+
+- Node.js 18.19+.
+- DAML SDK installed so `dpm` is available in PATH.

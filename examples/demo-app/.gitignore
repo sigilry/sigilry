@@ -1,0 +1,19 @@
+# Generated build artifacts
+/dist
+
+# DAML build output
+/.daml
+
+# Turbo cache and logs
+/.turbo
+
+# Node dependencies
+/node_modules
+
+# TypeScript incremental build info
+/tsconfig.tsbuildinfo
+
+# macOS
+.DS_Store
+
+/log

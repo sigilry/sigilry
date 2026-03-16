@@ -1,0 +1,76 @@
+---
+title: RPC Protocol
+description: JSON-RPC method contract, validation, and error handling.
+---
+
+Sigilry uses JSON-RPC 2.0 for dApp to wallet communication. Methods and schemas are defined in OpenRPC and validated with Zod at runtime.
+
+## Request and response shapes
+
+```ts
+// Request
+{
+  jsonrpc: '2.0',
+  id: 'request-id',
+  method: 'status',
+  params: undefined,
+}
+
+// Success response
+{
+  jsonrpc: '2.0',
+  id: 'request-id',
+  result: { /* method result */ },
+}
+
+// Error response
+{
+  jsonrpc: '2.0',
+  id: 'request-id',
+  error: { code: -32601, message: 'Method not found' },
+}
+```
+
+## Methods
+
+| Method                  | Params                       | Result                           |
+| ----------------------- | ---------------------------- | -------------------------------- |
+| `status`                | none                         | `StatusEvent`                    |
+| `connect`               | none                         | `StatusEvent`                    |
+| `disconnect`            | none                         | `null`                           |
+| `getActiveNetwork`      | none                         | `Network`                        |
+| `listAccounts`          | none                         | `Wallet[]`                       |
+| `getPrimaryAccount`     | none                         | `Wallet`                         |
+| `prepareExecute`        | `JsPrepareSubmissionRequest` | `null`                           |
+| `prepareExecuteAndWait` | `JsPrepareSubmissionRequest` | `{ tx: TxChangedExecutedEvent }` |
+| `signMessage`           | `{ message: string }`        | `{ signature: string }`          |
+| `ledgerApi`             | `LedgerApiRequest`           | `{ response: string }`           |
+
+Event methods are defined in the OpenRPC spec but delivered as provider events:
+
+- `accountsChanged`
+- `txChanged`
+
+## Error handling
+
+`@sigilry/dapp` exposes common error codes via `RpcErrorCode` and helpers like `rpcError`.
+
+```ts
+import { RpcClientError } from "@sigilry/dapp";
+
+async function getStatus() {
+  try {
+    return await window.canton.request({ method: "status" });
+  } catch (err) {
+    const parsed = RpcClientError.fromError(err);
+    console.error(parsed.code, parsed.message);
+    throw parsed;
+  }
+}
+
+getStatus();
+```
+
+## Validation
+
+`createCantonServer` validates params using Zod schemas generated from OpenRPC. Invalid params return `RpcErrorCode.INVALID_PARAMS` with a concise error message.

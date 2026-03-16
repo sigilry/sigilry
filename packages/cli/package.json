@@ -1,0 +1,79 @@
+{
+  "name": "@sigilry/cli",
+  "version": "0.3.0",
+  "description": "CLI for generating TypeScript types from DAML contracts",
+  "keywords": [
+    "cli",
+    "code-generation",
+    "codegen",
+    "daml",
+    "openrpc",
+    "types",
+    "typescript"
+  ],
+  "homepage": "https://sigilry.org",
+  "bugs": {
+    "url": "https://github.com/sigilry/sigilry/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sigilry/sigilry.git",
+    "directory": "packages/cli"
+  },
+  "bin": {
+    "sigilry": "./dist/src/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "module": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./config": {
+      "types": "./dist/src/config.d.ts",
+      "default": "./dist/src/config.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "zshy",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.3",
+    "commander": "^14.0.2",
+    "debug": "^4.4.1",
+    "tsx": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/debug": "^4",
+    "@types/node": "^24.0.12",
+    "typescript": "^5.8.3",
+    "zshy": "^0.7.0"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.0.0"
+  },
+  "engines": {
+    "node": ">=18.19.0"
+  },
+  "zshy": {
+    "exports": {
+      ".": "./src/index.ts",
+      "./config": "./src/config.ts"
+    },
+    "bin": {
+      "sigilry": "./src/cli.ts"
+    },
+    "cjs": false
+  }
+}

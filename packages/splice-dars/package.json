@@ -1,0 +1,35 @@
+{
+  "name": "@sigilry/splice-dars",
+  "version": "0.5.14",
+  "description": "Splice DAR files for @sigilry SDK development",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sigilry/sigilry.git",
+    "directory": "packages/splice-dars"
+  },
+  "files": [
+    "dars",
+    "LICENSE",
+    "NOTICE",
+    "src"
+  ],
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prepack": "bun run scripts/ensure-dars.ts",
+    "check:packaging": "bun run scripts/check-packaging.ts",
+    "extract": "bun run scripts/extract-dars.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.12",
+    "typescript": "^5.8.3"
+  }
+}

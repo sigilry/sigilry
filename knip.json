@@ -1,0 +1,38 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    "packages/dapp": {
+      "entry": ["src/index.ts", "src/browser-globals.ts"],
+      "project": ["src/**/*.ts", "!src/generated/**"],
+      "ignore": ["src/messages/runtime-schemas.ts", "src/messages/schemas.ts"]
+    },
+    "packages/react": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"],
+      "ignore": ["src/hooks/index.ts", "src/hooks/useExerciseChoice.ts"]
+    },
+    "packages/cli": {
+      "project": ["src/**/*.ts"]
+    },
+    "packages/canton-json-api": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts", "!src/generated/**"],
+      "ignore": ["openapi-ts.config.ts"],
+      "ignoreDependencies": ["zod"]
+    },
+    "packages/splice-dars": {
+      "project": ["src/**/*.ts", "scripts/**/*.ts"]
+    },
+    "examples/demo-app": {
+      "entry": ["src/main.tsx", "sigilry.config.ts"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "docs": {
+      "entry": ["src/worker.ts"],
+      "project": ["src/**/*.{ts,astro,mdx}"],
+      "ignoreDependencies": ["sharp", "typedoc-plugin-frontmatter"]
+    }
+  },
+  "ignore": ["**/dist/**", "**/node_modules/**", "**/__tests__/**", "**/generated/**"],
+  "ignoreBinaries": ["build"]
+}
