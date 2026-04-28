@@ -1,0 +1,272 @@
+---
+title: 1.x → 2.0 migration
+description: Breaking changes in @sigilry/dapp and @sigilry/react 2.0 — CIP-0103 alignment, EIP-6963-style discovery, ledgerApi contract rewrite.
+---
+
+This guide covers every breaking change between `@sigilry/dapp@1.0.1` / `@sigilry/react@1.0.3` (last `1.x` releases) and the `2.0.0-next.*` pre-release line. Apply every section that is relevant to your integration.
+
+## tl;dr — action items
+
+1. **`connect()` now returns `ConnectResult`**, not `StatusEvent`. If you read `.provider`, `.network`, `.session`, or `.connection` off the `connect()` return value, replace those reads with a follow-up `provider.status()` call.
+2. **New method `isConnected()`** — returns `ConnectResult` without user interaction. Safe to feature-detect; calling it on older wallet builds throws `-32601` "method not found".
+3. **Discovery is now EIP-6963-style** — listen for `canton:announceProvider`, dispatch `canton:requestProvider`. `window.canton` is still injected for backward compatibility.
+4. **Multi-wallet `target` routing** — each announcement carries a `target`; the injected provider tags requests with it so peer wallets can drop messages that aren't for them.
+5. **`ledgerApi` contract rewrite** — `requestMethod` is a lowercase enum, bodies are plain objects (not JSON strings), and the return value is the raw Canton payload (not `{response: "<jsonString>"}`).
+6. **`prepareExecute` command atoms** — `commands: [{CreateCommand: {templateId, createArguments}}]` in PascalCase, matching the Canton Ledger API wire shape. `choice` replaces `choiceName` in `ExerciseCommand`.
+7. **`ExerciseChoiceRequest.choice`** — renamed from `choiceName`.
+8. **`StatusEvent`/`Provider` rename** — `providerType` replaces `clientType` in `Provider`.
+
+---
+
+## 1. `connect()` return type
+
+### Before (1.x)
+
+```ts
+const result = await provider.connect();
+// result.provider: Provider
+// result.connection: ConnectResult
+// result.network?: Network
+// result.session?: Session
+```
+
+### After (2.x)
+
+```ts
+const result = await provider.connect();
+// result: ConnectResult
+//   - isConnected: boolean
+//   - isNetworkConnected: boolean
+//   - reason?: string
+//   - networkReason?: string
+//   - userUrl?: string
+```
+
+### Migration
+
+```ts
+// Old
+const { connection, provider: p, network, session } = await provider.connect();
+if (connection.isConnected) useIt(p, network, session);
+
+// New
+const connectResult = await provider.connect();
+if (connectResult.isConnected) {
+  const { provider: p, network, session } = await provider.request({ method: "status" });
+  useIt(p, network, session);
+}
+```
+
+Tracks CIP-0103 as shipped upstream in [`splice-wallet-kernel` PR #1609](https://github.com/hyperledger-labs/splice-wallet-kernel/pull/1609).
+
+## 2. `isConnected()` — new method
+
+Returns the same `ConnectResult` as `connect()` without triggering any user interaction. Useful after `disconnect()` or on page load.
+
+```ts
+const { isConnected, isNetworkConnected } = await provider.request({
+  method: "isConnected",
+});
+```
+
+Feature-detect for older wallet builds:
+
+```ts
+try {
+  const r = await provider.request({ method: "isConnected" });
+} catch (err) {
+  if (err.code === -32601 /* Method not found */) {
+    // Older wallet — fall back to provider.status().connection.isConnected
+  }
+}
+```
+
+## 3. Provider discovery — EIP-6963-style
+
+The wallet now dispatches a `canton:announceProvider` CustomEvent at `document_start` with detail:
+
+```ts
+{
+  id: string       // equal to browser.runtime.id for this extension
+  name: string
+  icon?: string    // data: URL or https URL
+  target: string   // used by the SDK to route messages to the right wallet
+}
+```
+
+dApps that want to enumerate installed wallets should listen for the event and/or dispatch `canton:requestProvider` to ask all wallets to re-announce:
+
+```ts
+const wallets = new Map<string, { id: string; name: string }>();
+window.addEventListener("canton:announceProvider", (e: any) => {
+  wallets.set(e.detail.id, e.detail);
+});
+window.dispatchEvent(new CustomEvent("canton:requestProvider"));
+// After a tick, `wallets` contains every Canton wallet on the page.
+```
+
+`window.canton` continues to be injected for dApps that don't use the announcement flow.
+
+## 4. Multi-wallet `target` routing
+
+Each announced wallet carries a `target` equal to that extension's `browser.runtime.id`. The injected provider passes that value into `WindowTransport.target`, and the content script only forwards messages whose `target` matches its own extension id. Messages with no `target` are still accepted for legacy dApps.
+
+For dApp developers:
+
+- If you use the announcement flow in §3, capture the `target` field from each `canton:announceProvider` event and treat it as the wallet selector.
+- If you call a single injected `window.canton` provider directly, no extra work is required; the provider tags requests automatically.
+- If your dApp supports multiple wallets simultaneously, construct a separate `@sigilry/dapp` `WindowTransport` per wallet and pass the chosen `target` through `TransportOptions`.
+
+When multiple wallets are installed, `window.canton` remains a compatibility surface and the last injected provider can win the global name. The announcement flow plus `target` routing is the stable selection mechanism.
+
+## 5. `ledgerApi` contract
+
+The JSON-RPC `ledgerApi` method was rewritten to match the canonical CIP-0103 shape. Three things changed on the wire. If you call `ledgerApi` directly, or consume `@sigilry/react` hooks that call it (`useLedgerEnd`, `useLedgerUpdates`, `useActiveContracts`, `useContractStream`), you must upgrade: the `1.x` hooks and the `1.x` request shape are silently rejected by 2.x wallets.
+
+### 5.1 `requestMethod` is a lowercase enum
+
+The CIP-0103 `LedgerApiRequestSchema` validates `requestMethod` as `z.enum(['get', 'post', 'patch', 'put', 'delete'])`. Uppercase values are rejected with `-32602 Invalid params`.
+
+```ts
+// Before (1.x) — silently fails on 2.x wallets
+await provider.request({
+  method: "ledgerApi",
+  params: { requestMethod: "GET", resource: "/v2/state/ledger-end" },
+});
+
+// After (2.x)
+await provider.request({
+  method: "ledgerApi",
+  params: { requestMethod: "get", resource: "/v2/state/ledger-end" },
+});
+```
+
+### 5.2 `body` is a plain object
+
+In `1.x` some integrations pre-stringified `body` as a JSON string to preserve `int64` precision. In `2.x` the wallet accepts plain objects and forwards them to the Canton JSON API; the SDK's `buildUpdatesFlatsRequestBody` / `buildActiveContractsRequestBody` now return objects with decimal-string offsets to keep precision without double-serialization.
+
+```ts
+// Before (1.x)
+await provider.request({
+  method: "ledgerApi",
+  params: {
+    requestMethod: "post",
+    resource: "/v2/updates/flats",
+    body: `{"beginExclusive":${offset},"updateFormat":${JSON.stringify(updateFormat)}}`,
+  },
+});
+
+// After (2.x)
+await provider.request({
+  method: "ledgerApi",
+  params: {
+    requestMethod: "post",
+    resource: "/v2/updates/flats",
+    body: { beginExclusive: offset, updateFormat },
+  },
+});
+```
+
+### 5.3 Return value is the raw Canton payload
+
+`LedgerApiResult` is now the parsed JSON response from Canton — not `{response: "<jsonString>"}`. Parse the payload directly.
+
+```ts
+// Before (1.x)
+const result = await provider.request({ method: 'ledgerApi', params: { ... } })
+if (result?.response) {
+  const parsed = JSON.parse(result.response)        // ← wrapper no longer exists
+  useOffset(parsed.offset)
+}
+
+// After (2.x)
+const result = await provider.request({ method: 'ledgerApi', params: { ... } })
+useOffset(result.offset)                             // ← payload is result itself
+```
+
+This matches upstream `splice-wallet-kernel/core/wallet-gateway/*/src/dapp-api/controller.ts` and the CIP-0103 `LedgerApiResult` schema (`{additionalProperties: true}` — an arbitrary JSON record, no mandatory `response` key).
+
+> **If you were on `@sigilry/react@1.0.3`**, all three issues are already fixed in `2.0.0-next.*`. The `1.0.3` dist shipped uppercase methods, stringified bodies, and `result?.response` unwrapping; errors were swallowed by a blanket `catch {}` inside the hooks, leaving `currentOffset` undefined forever. Upgrade to `2.0.0-next.*` or consume via a yarn patch that refreshes the dist.
+
+## 6. `prepareExecute` / `prepareExecuteAndWait` command atoms
+
+The request body uses CIP-0103 Command atoms in PascalCase, matching the Canton Ledger API wire form:
+
+```ts
+await provider.request({
+  method: "prepareExecute",
+  params: {
+    commands: [
+      {
+        CreateCommand: {
+          templateId: "...",
+          createArguments: {
+            /* ... */
+          },
+        },
+      },
+    ],
+    // optional: commandId, actAs, readAs, disclosedContracts,
+    // synchronizerId, packageIdSelectionPreference
+  },
+});
+```
+
+Supported atoms: `CreateCommand`, `ExerciseCommand`, `CreateAndExerciseCommand`, `ExerciseByKeyCommand`.
+
+> **Record shape tip.** The Send Canton Wallet api-gateway includes a record-encoding shim that accepts plain JS Daml records and converts them into protobuf `RecordJson` before submission. You do not need to pre-serialize records as `{fields: [{label, value}, ...]}`. This shim is Send-specific; other wallets may require the strict shape.
+
+## 7. `ExerciseChoiceRequest` — `choice` replaces `choiceName`
+
+The React hook `useExerciseChoice` (and the underlying RPC params) uses `choice` instead of `choiceName` to match the Canton Ledger API `ExerciseCommand` wire field.
+
+```tsx
+// Before (1.x)
+exerciseChoice({ contractId, choiceName: "Archive", choiceArgument: {} });
+
+// After (2.x)
+exerciseChoice({ contractId, choice: "Archive", choiceArgument: {} });
+```
+
+## 8. `Provider.providerType` replaces `clientType`
+
+`StatusEvent.provider.clientType` is now `providerType` in the CIP-0103 schema, and the `required` list correctly references the renamed field.
+
+```ts
+// Before
+const { clientType } = status.provider;
+
+// After
+const { providerType } = status.provider;
+```
+
+---
+
+## Audited compatibility (unchanged types)
+
+The Phase 2 S3 audit compared the pinned upstream OpenRPC schema, the `@sigilry/dapp` runtime schemas, and the webext controller emissions. The following RPC methods and types keep their `1.x` wire shape in `2.x`:
+
+- `status`, `disconnect`, `getActiveNetwork`, `accountsChanged`, `getPrimaryAccount`, `listAccounts`, `txChanged` — method shape unchanged.
+- `Wallet` — return shape from `status()`, `getPrimaryAccount()`, and account-listing flows is unchanged.
+- `Network` — `networkId` / optional `ledgerApi` / optional `accessToken` unchanged.
+- `SignMessageRequest` / `SignMessageResult` — unchanged (webext still guards empty-string `message` at runtime).
+- `AccountsChangedEvent` — subscription payloads unchanged.
+- `ListAccountsResult` — unchanged.
+
+### Known rough edges (strict validators only)
+
+- `TxChangedEvent.completionOffset` / `TxChangedExecutedEvent.completionOffset` — currently accept any numeric value. Strict CIP-0103 validators should coerce or guard as an integer.
+- `DisclosedContract` entries — forwarded opaquely today; test your `prepareExecute*` flows against the specific wallet until explicit field handling lands.
+
+## Error handling
+
+Standard JSON-RPC 2.0 error codes:
+
+| Code   | Meaning          |
+| ------ | ---------------- |
+| -32600 | Invalid Request  |
+| -32601 | Method not found |
+| -32602 | Invalid params   |
+| -32603 | Internal error   |
+
+If you see `-32602 Invalid params` with a message mentioning `requestMethod` or `commands: Invalid input`, you are hitting §5.1 or §6 respectively.

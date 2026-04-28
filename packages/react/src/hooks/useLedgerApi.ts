@@ -9,7 +9,6 @@ import type {
   LedgerApiRequest as DappLedgerApiRequest,
   LedgerApiResult,
 } from "@sigilry/dapp/schemas";
-import JSONbig from "json-bigint";
 import { useCanton } from "../context";
 
 /**
@@ -21,8 +20,8 @@ export type LedgerApiRequest = DappLedgerApiRequest;
  * Parsed Ledger API response
  */
 export interface LedgerApiResponse<T = unknown> {
-  /** Raw response string from the API */
-  raw: string;
+  /** Raw JSON payload from the API */
+  raw: LedgerApiResult;
   /** Parsed response data */
   data: T;
 }
@@ -51,24 +50,16 @@ export interface UseLedgerApiOptions<T> {
   parse: LedgerApiParser<T>;
 }
 
-const ledgerWireJson = JSONbig({
-  strict: true,
-  useNativeBigInt: true,
-});
-
 export function parseLedgerApiResponse<T>(
-  response: string,
+  payload: unknown,
   parse: LedgerApiParser<T>,
 ): LedgerApiResponse<T> {
-  let payload: unknown;
-  try {
-    payload = ledgerWireJson.parse(response) as unknown;
-  } catch {
-    throw new Error("Invalid ledger API JSON response");
+  if (typeof payload !== "object" || payload === null) {
+    throw new Error("Invalid ledger API response");
   }
 
   return {
-    raw: response,
+    raw: payload as LedgerApiResult,
     data: parse(payload),
   };
 }
@@ -87,7 +78,7 @@ export function parseLedgerApiResponse<T>(
  *
  *   const fetchOffset = async () => {
  *     const result = await requestAsync({
- *       requestMethod: 'GET',
+ *       requestMethod: 'get',
  *       resource: '/v2/state/ledger-end'
  *     })
  *     console.log('Offset:', result.data)
@@ -114,12 +105,7 @@ function useLedgerApiWithParser<T>(options: UseLedgerApiOptions<T>): UseLedgerAp
   > = useMutation({
     mutationFn: async (params: DappLedgerApiRequest): Promise<LedgerApiResponse<T>> => {
       const result: LedgerApiResult = await cantonRequest("ledgerApi", params);
-
-      if (!result?.response) {
-        throw new Error("Invalid ledger API response");
-      }
-
-      return parseLedgerApiResponse(result.response, options.parse);
+      return parseLedgerApiResponse(result, options.parse);
     },
   });
 

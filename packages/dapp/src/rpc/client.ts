@@ -27,6 +27,9 @@ export interface CantonClient {
   /** Disconnect wallet session */
   disconnect(): Promise<RpcMethods["disconnect"]["result"]>;
 
+  /** Check whether the wallet session is connected */
+  isConnected(): Promise<RpcMethods["isConnected"]["result"]>;
+
   /** Get the active network */
   getActiveNetwork(): Promise<RpcMethods["getActiveNetwork"]["result"]>;
 
@@ -84,6 +87,8 @@ export function createCantonClient(transport: RpcTransport): CantonClient {
     connect: () => call("connect"),
 
     disconnect: () => call("disconnect"),
+
+    isConnected: () => call("isConnected"),
 
     getActiveNetwork: () => call("getActiveNetwork"),
 

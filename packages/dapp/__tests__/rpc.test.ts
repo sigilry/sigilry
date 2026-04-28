@@ -14,18 +14,16 @@ describe("RPC Client/Server", () => {
       const server = createCantonServer({
         ...createStubHandlers(),
         status: async () => ({
-          kernel: { id: "test", clientType: "browser" },
-          isConnected: true,
-          isNetworkConnected: true,
+          provider: { id: "test", providerType: "browser" },
+          connection: { isConnected: true, isNetworkConnected: true },
         }),
       });
 
       const result = await server.handleRequest("status", undefined);
       expect(result).toEqual({
         result: {
-          kernel: { id: "test", clientType: "browser" },
-          isConnected: true,
-          isNetworkConnected: true,
+          provider: { id: "test", providerType: "browser" },
+          connection: { isConnected: true, isNetworkConnected: true },
         },
       });
     });
@@ -129,10 +127,11 @@ describe("RPC Client/Server", () => {
         ...createStubHandlers(),
         ledgerApi: async (params) => {
           expect(params).toEqual({
-            requestMethod: "GET",
+            requestMethod: "get",
             resource: "/v1/query",
+            body: { templateIds: ["Foo:Bar:Baz"] },
           });
-          return { response: '{"result": []}' };
+          return { result: [] };
         },
       });
 
@@ -144,10 +143,11 @@ describe("RPC Client/Server", () => {
 
       const client = createCantonClient(transport);
       const result = await client.ledgerApi({
-        requestMethod: "GET",
+        requestMethod: "get",
         resource: "/v1/query",
+        body: { templateIds: ["Foo:Bar:Baz"] },
       });
-      expect(result).toEqual({ response: '{"result": []}' });
+      expect(result).toEqual({ result: [] });
     });
   });
 
@@ -158,6 +158,7 @@ describe("RPC Client/Server", () => {
         "status",
         "connect",
         "disconnect",
+        "isConnected",
         "getActiveNetwork",
         "listAccounts",
         "getPrimaryAccount",

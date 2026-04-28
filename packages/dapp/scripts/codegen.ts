@@ -143,6 +143,127 @@ function postProcessForZod4(code: string): string {
   return code.replace(/z\.record\(z\.any\(\)\)/g, "z.record(z.string(), z.any())");
 }
 
+function normalizeObjectSchema(schema: JsonSchema): JsonSchema {
+  return !Array.isArray(schema) && !("type" in schema) && "properties" in schema
+    ? { ...schema, type: "object" }
+    : schema;
+}
+
+function schemaToZodCode(schema: JsonSchema): string {
+  const resolvedSchema = resolveAndInlineRefs(schema, allSchemas);
+  const normalizedSchema = normalizeObjectSchema(resolvedSchema);
+  const schemaWithDefs = { ...normalizedSchema, $defs: resolvedSchemas };
+  return postProcessForZod4(jsonSchemaToZod(schemaWithDefs, { module: "none", name: undefined }));
+}
+
+function getPropertySchemaCode(schema: JsonSchema): string {
+  if ("$ref" in schema && typeof schema.$ref === "string") {
+    const refName = schema.$ref.split("/").pop()!;
+    return `${refName}Schema`;
+  }
+
+  if (
+    schema.type === "array" &&
+    typeof schema.items === "object" &&
+    schema.items !== null &&
+    "$ref" in schema.items &&
+    typeof schema.items.$ref === "string"
+  ) {
+    const itemRefName = schema.items.$ref.split("/").pop()!;
+    let code = `z.array(${itemRefName}Schema)`;
+
+    if (typeof schema.minItems === "number") {
+      code += `.min(${schema.minItems})`;
+    }
+    if (typeof schema.maxItems === "number") {
+      code += `.max(${schema.maxItems})`;
+    }
+    if (typeof schema.description === "string") {
+      code += `.describe(${JSON.stringify(schema.description)})`;
+    }
+
+    return code;
+  }
+
+  return schemaToZodCode(schema);
+}
+
+/**
+ * Preserve top-level array refs as named schema references instead of letting
+ * json-schema-to-zod inline them into anonymous superRefine unions.
+ */
+function getArrayRefSchemaCode(schema: JsonSchema): string | null {
+  if (schema.type !== "array") {
+    return null;
+  }
+
+  const items = schema.items;
+  if (
+    typeof items !== "object" ||
+    items === null ||
+    !("$ref" in items) ||
+    typeof items.$ref !== "string"
+  ) {
+    return null;
+  }
+
+  const itemRefName = items.$ref.split("/").pop()!;
+  let code = `z.array(${itemRefName}Schema)`;
+
+  if (typeof schema.minItems === "number") {
+    code += `.min(${schema.minItems})`;
+  }
+  if (typeof schema.maxItems === "number") {
+    code += `.max(${schema.maxItems})`;
+  }
+  if (typeof schema.description === "string") {
+    code += `.describe(${JSON.stringify(schema.description)})`;
+  }
+
+  return code;
+}
+
+function getNamedObjectRefSchemaCode(name: string, schema: JsonSchema): string | null {
+  if (name !== "JsPrepareSubmissionRequest" || schema.type !== "object") {
+    return null;
+  }
+
+  const properties =
+    typeof schema.properties === "object" && schema.properties !== null ? schema.properties : null;
+  if (!properties) {
+    return null;
+  }
+
+  const required = new Set(Array.isArray(schema.required) ? schema.required : []);
+  const propertyEntries = Object.entries(properties).map(([propertyName, propertySchema]) => {
+    const propertyCode = getPropertySchemaCode(propertySchema as JsonSchema);
+    const maybeOptional = required.has(propertyName) ? propertyCode : `${propertyCode}.optional()`;
+    return `"${propertyName}": ${maybeOptional}`;
+  });
+
+  let code = `z.object({ ${propertyEntries.join(", ")} })`;
+  if (schema.additionalProperties === false) {
+    code += ".strict()";
+  }
+  if (typeof schema.description === "string") {
+    code += `.describe(${JSON.stringify(schema.description)})`;
+  }
+
+  return code;
+}
+
+function getSpecialSchemaCode(name: string): string | null {
+  if (name !== "LedgerApiResult") {
+    return null;
+  }
+
+  return [
+    "// NOTE: openrpc-dapp-api.json#/components/schemas/LedgerApiResult still says type: object.",
+    "// Keep arrays allowed here until the upstream schema matches real Ledger API list responses.",
+    'export const LedgerApiResultSchema = z.union([z.record(z.string(), z.unknown()), z.array(z.unknown())]).describe("Ledger Api response")',
+  ].join("\n");
+}
+
 // Track oneOf schemas that need special handling (generate after member schemas)
 const oneOfSchemas: Map<string, { refNames: string[]; description: string }> = new Map();
 
@@ -153,6 +274,8 @@ const typeEntries: string[] = [];
 // Deferred entries for oneOf unions (must come after their member schemas)
 const deferredSchemaEntries: string[] = [];
 const deferredTypeEntries: string[] = [];
+const postDependencySchemaEntries: string[] = [];
+const postDependencyTypeEntries: string[] = [];
 
 // Sort schemas to ensure deterministic output
 const sortedSchemaNames = Object.keys(resolvedSchemas).sort();
@@ -160,6 +283,13 @@ const sortedSchemaNames = Object.keys(resolvedSchemas).sort();
 for (const name of sortedSchemaNames) {
   const schema = resolvedSchemas[name];
   const originalSchema = allSchemas[name];
+
+  const specialSchemaCode = getSpecialSchemaCode(name);
+  if (specialSchemaCode) {
+    schemaEntries.push(specialSchemaCode);
+    typeEntries.push(`export type ${name} = z.infer<typeof ${name}Schema>`);
+    continue;
+  }
 
   // Check if this is a oneOf union - handle specially to avoid superRefine issues
   if (isOneOfSchema(originalSchema)) {
@@ -181,6 +311,20 @@ for (const name of sortedSchemaNames) {
       deferredTypeEntries.push(`export type ${name} = z.infer<typeof ${name}Schema>`);
       continue;
     }
+  }
+
+  const arrayRefSchemaCode = getArrayRefSchemaCode(originalSchema);
+  if (arrayRefSchemaCode) {
+    postDependencySchemaEntries.push(`export const ${name}Schema = ${arrayRefSchemaCode}`);
+    postDependencyTypeEntries.push(`export type ${name} = z.infer<typeof ${name}Schema>`);
+    continue;
+  }
+
+  const namedObjectRefSchemaCode = getNamedObjectRefSchemaCode(name, originalSchema);
+  if (namedObjectRefSchemaCode) {
+    postDependencySchemaEntries.push(`export const ${name}Schema = ${namedObjectRefSchemaCode}`);
+    postDependencyTypeEntries.push(`export type ${name} = z.infer<typeof ${name}Schema>`);
+    continue;
   }
 
   // Create schema with $defs for any remaining circular refs
@@ -212,6 +356,8 @@ for (const name of sortedSchemaNames) {
 // Append deferred oneOf union schemas (after their member schemas are defined)
 schemaEntries.push(...deferredSchemaEntries);
 typeEntries.push(...deferredTypeEntries);
+schemaEntries.push(...postDependencySchemaEntries);
+typeEntries.push(...postDependencyTypeEntries);
 
 // Extract RPC method definitions from the dapp-api spec
 interface OpenRpcMethod {
@@ -240,24 +386,8 @@ function toTypeName(methodName: string, suffix: string): string {
  * Returns the type name if successful, or 'unknown' if it fails.
  */
 function generateInlineType(schema: JsonSchema, typeName: string): string {
-  const resolvedSchema = resolveAndInlineRefs(schema, allSchemas);
-
-  // Some canonical OpenRPC schemas omit `"type": "object"` while still providing `properties`.
-  // json-schema-to-zod will degrade these to `z.any()`, so normalize them here.
-  const normalizedSchema: JsonSchema =
-    typeof resolvedSchema === "object" &&
-    resolvedSchema !== null &&
-    !Array.isArray(resolvedSchema) &&
-    !("type" in resolvedSchema) &&
-    "properties" in resolvedSchema
-      ? { ...resolvedSchema, type: "object" }
-      : resolvedSchema;
-  const schemaWithDefs = { ...normalizedSchema, $defs: resolvedSchemas };
-
   try {
-    let zodCode = jsonSchemaToZod(schemaWithDefs, { module: "none", name: undefined });
-    zodCode = postProcessForZod4(zodCode);
-    inlineSchemas.push(`export const ${typeName}Schema = ${zodCode}`);
+    inlineSchemas.push(`export const ${typeName}Schema = ${schemaToZodCode(schema)}`);
     inlineTypes.push(`export type ${typeName} = z.infer<typeof ${typeName}Schema>`);
     return typeName;
   } catch {

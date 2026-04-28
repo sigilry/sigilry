@@ -127,46 +127,35 @@ export function useActiveContracts(
       };
 
       // First fetch current ledger end offset - activeAtOffset: 0 means "beginning" not "current"
-      let activeAtOffset = "0";
-      try {
-        const ledgerEndResult = await request("ledgerApi", {
-          requestMethod: "GET",
-          resource: "/v2/state/ledger-end",
-        });
-        if (ledgerEndResult?.response) {
-          activeAtOffset = parseLedgerEndResponse(ledgerEndResult.response).offset;
-        }
-      } catch {
-        // If ledger-end fails, continue with 0 (will likely return empty)
-      }
+      const ledgerEndResult = await request("ledgerApi", {
+        requestMethod: "get",
+        resource: "/v2/state/ledger-end",
+      });
+      const activeAtOffset = parseLedgerEndResponse(ledgerEndResult).offset;
 
       const result = await request("ledgerApi", {
-        requestMethod: "POST",
+        requestMethod: "post",
         resource: "/v2/state/active-contracts",
         body: buildActiveContractsRequestBody(activeAtOffset, eventFormat),
       });
 
-      // Parse the response JSON string
-      if (result?.response) {
-        const entries: ParsedActiveContractsEntry[] = parseActiveContractsResponse(result.response);
-        const contracts: ActiveContract[] = entries
-          .map(getCreatedEvent)
-          .filter((entry): entry is ParsedActiveContractsCreatedEvent => Boolean(entry))
-          .map((createdEvent) => ({
-            contractId: createdEvent.contractId,
-            templateId: createdEvent.templateId,
-            payload: createdEvent.createArgument ?? {},
-            createdAt: createdEvent.createdAt,
-            signatories: createdEvent.signatories,
-            observers: createdEvent.observers,
-          }));
+      const entries: ParsedActiveContractsEntry[] = parseActiveContractsResponse(result);
+      const contracts: ActiveContract[] = entries
+        .map(getCreatedEvent)
+        .filter((entry): entry is ParsedActiveContractsCreatedEvent => Boolean(entry))
+        .map((createdEvent) => ({
+          contractId: createdEvent.contractId,
+          templateId: createdEvent.templateId,
+          payload: createdEvent.createArgument ?? {},
+          createdAt: createdEvent.createdAt,
+          signatories: createdEvent.signatories,
+          observers: createdEvent.observers,
+        }));
 
-        return {
-          contracts,
-          offset: String(activeAtOffset),
-        };
-      }
-      throw new Error("Invalid active contracts response");
+      return {
+        contracts,
+        offset: String(activeAtOffset),
+      };
     },
     enabled: queryEnabled,
     refetchInterval: queryEnabled && refetchInterval ? refetchInterval : false,

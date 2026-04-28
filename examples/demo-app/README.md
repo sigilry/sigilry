@@ -196,7 +196,7 @@ const provider = window.canton; // Injected by a wallet extension or demo mock
 const status = await provider.request({ method: "status" });
 // status is a typed StatusEvent result
 
-if (!status.isConnected) {
+if (!status.connection.isConnected) {
   await provider.request({ method: "connect" });
 }
 
@@ -314,7 +314,7 @@ function TodoItem({
           exercise({
             contractId: contract.contractId,
             templateId: contract.templateId,
-            choiceName: "Complete",
+            choice: "Complete",
             choiceArgument: {},
           })
         }
@@ -391,6 +391,24 @@ To make the first SDK example approachable:
 - Approval flows are visible, so you can see `prepareExecuteAndWait` in action.
 - The provider still uses the **real** `@sigilry/dapp` request types and events.
 - Ledger reads/writes execute against a real local DAML sandbox.
+
+## Examples Gallery
+
+In addition to the Todo integration on the **Todo Integration** tab, the demo app ships three polished examples that mirror the browser-console patterns external teams currently reference. Each example is a React component that uses `@sigilry/react` hooks exclusively; there is no direct `window.canton.request(...)` escape hatch except where documented.
+
+| Tab              | Hook stack                                                                                           | What it demonstrates                                                        |
+| ---------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Active Contracts | `useConnect`, `useActiveAccount`, `useActiveContracts()`                                             | Connect, fetch all active contracts (wildcard), group by template id.       |
+| Sign Message     | `useSignMessage`, `useActiveAccount`, `verifySignature` (Web Crypto)                                 | Request a wallet signature; verify it client-side against the account key.  |
+| USDCx Transfer   | `useActiveAccount`, `useLedgerApi` (interface filter), `useSubmitCommand`, `useCanton().onTxChanged` | Token-standard transfer: query holdings, build protobuf Value JSON, submit. |
+
+The USDCx demo uses `useLedgerApi` as a documented escape hatch for the Holding interface-filter query because `useActiveContracts` does not yet support `interfaceFilters`. See `src/examples/usdcx-transfer/UsdcxTransferExample.tsx` and `src/lib/usdcx-holdings.ts` for the full flow, and `src/lib/protobuf-value.ts` for the typed protobuf-Value helpers shared with any token-standard integration.
+
+The reusable utility modules added alongside the gallery:
+
+- `src/lib/ecdsa-verify.ts` — typed Web Crypto wrapper for verifying `signMessage` signatures from the local Ed25519 simulator and ECDSA P-256 wallets.
+- `src/lib/protobuf-value.ts` — typed builders for the protobuf Value JSON format Canton ISS expects in `prepareExecuteAndWait` choice arguments.
+- `src/lib/usdcx-holdings.ts` — hook-free loader and holding-selection utility for the USDCx instrument.
 
 ## Next Steps
 

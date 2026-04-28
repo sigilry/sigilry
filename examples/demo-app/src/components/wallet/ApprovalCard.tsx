@@ -24,28 +24,44 @@ export const ApprovalCard = ({ approval }: ApprovalCardProps) => {
       return null;
     }
 
+    const asRecord = (value: unknown): Record<string, unknown> | null => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return null;
+      }
+      return value as Record<string, unknown>;
+    };
+
     const record = params as {
       commandId?: string;
       actAs?: string[];
-      commands?: {
-        create?: { templateId?: string };
-        exercise?: { templateId?: string; contractId?: string; choiceName?: string };
-      };
+      commands?: unknown[];
     };
 
     const summaryParts: string[] = [];
+    const create = asRecord(
+      record.commands
+        ?.map((command) => asRecord(command))
+        .find((command) => command?.CreateCommand !== undefined)?.CreateCommand,
+    );
+    const exercise = asRecord(
+      record.commands
+        ?.map((command) => asRecord(command))
+        .find((command) => command?.ExerciseCommand !== undefined)?.ExerciseCommand,
+    );
 
-    if (record.commands?.exercise) {
-      const { choiceName, contractId, templateId } = record.commands.exercise;
-      summaryParts.push(`Exercise ${choiceName ?? "choice"}`);
+    if (exercise) {
+      const choice = typeof exercise.choice === "string" ? exercise.choice : null;
+      const contractId = typeof exercise.contractId === "string" ? exercise.contractId : null;
+      const templateId = typeof exercise.templateId === "string" ? exercise.templateId : null;
+      summaryParts.push(`Exercise ${choice ?? "choice"}`);
       if (templateId) {
         summaryParts.push(templateId.replace(/^#/, ""));
       }
       if (contractId) {
         summaryParts.push(`on ${shortenContractId(contractId)}`);
       }
-    } else if (record.commands?.create) {
-      const { templateId } = record.commands.create;
+    } else if (create) {
+      const templateId = typeof create.templateId === "string" ? create.templateId : null;
       summaryParts.push("Create contract");
       if (templateId) {
         summaryParts.push(templateId.replace(/^#/, ""));

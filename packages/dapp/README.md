@@ -1,6 +1,8 @@
 # @sigilry/dapp
 
-Core package for Canton dApp-to-extension communication. Provides types, schemas, and utilities implementing the [Splice Wallet JSON-RPC dApp API](https://github.com/hyperledger-labs/splice-wallet-kernel).
+Core package for [CIP-103](https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md)-compliant dApp ↔ wallet extension communication on Canton Network. Provides the typed `SpliceProvider` interface, JSON-RPC client/server, transports, and Zod schemas generated from the CIP-103 OpenRPC specification.
+
+The CIP-103 OpenRPC machine-readable spec is maintained upstream in [`hyperledger-labs/splice-wallet-kernel`](https://github.com/hyperledger-labs/splice-wallet-kernel) and vendored into `packages/dapp/api-specs/openrpc-dapp-api.json`; per CIP-103 §2 the OpenRPC JSON is the ground truth where the prose and the schema diverge.
 
 ## Installation
 
@@ -12,11 +14,11 @@ yarn add @sigilry/dapp
 
 This package provides the building blocks for dApp ↔ wallet extension communication:
 
-- **SpliceProvider Interface**: EIP-1193-style provider API
-- **Message Types**: Typed events and schemas for JSON-RPC messaging
+- **SpliceProvider Interface**: CIP-103 dApp API surface (request/on/removeListener — the EIP-1193 object shape that CIP-103 adopts)
+- **Message Types**: Typed events and schemas for the CIP-103 JSON-RPC envelope
 - **Transport Layer**: Window postMessage transport implementation
-- **RPC Utilities**: Client/server factories with error handling
-- **Zod Schemas**: Runtime validation generated from OpenRPC specs
+- **RPC Utilities**: Client/server factories with CIP-103-aligned error codes
+- **Zod Schemas**: Runtime validation generated from the CIP-103 OpenRPC spec
 
 ## Usage
 
@@ -28,7 +30,7 @@ import { SpliceProviderBase, WindowTransport } from "@sigilry/dapp";
 // Use the injected provider
 if (window.canton) {
   const status = await window.canton.request({ method: "status" });
-  console.log("Connected:", status.isConnected);
+  console.log("Connected:", status.connection.isConnected);
 }
 ```
 
@@ -40,9 +42,8 @@ import { createCantonServer, WalletEvent, isSpliceMessage, jsonRpcResponse } fro
 // Create RPC server with handlers
 const server = createCantonServer({
   status: async () => ({
-    kernel: { id: "send-extension", clientType: "browser" },
-    isConnected: true,
-    isNetworkConnected: true,
+    provider: { id: "send-extension", providerType: "browser" },
+    connection: { isConnected: true, isNetworkConnected: true },
   }),
   connect: async () => {
     /* ... */
@@ -146,20 +147,21 @@ enum WalletEvent {
 
 ### RPC Methods
 
-| Method                  | Params                       | Result                           | Description                                             |
-| ----------------------- | ---------------------------- | -------------------------------- | ------------------------------------------------------- |
-| `status`                | none                         | `StatusEvent`                    | Get connection status                                   |
-| `connect`               | none                         | `StatusEvent`                    | Connect and get status (token in `session.accessToken`) |
-| `disconnect`            | none                         | `null`                           | Disconnect session                                      |
-| `getActiveNetwork`      | none                         | `Network`                        | Get active network                                      |
-| `listAccounts`          | none                         | `Wallet[]`                       | Get authorized accounts                                 |
-| `getPrimaryAccount`     | none                         | `Wallet`                         | Get the primary account                                 |
-| `prepareExecute`        | `JsPrepareSubmissionRequest` | `null`                           | Prepare, sign, and execute transaction                  |
-| `prepareExecuteAndWait` | `JsPrepareSubmissionRequest` | `{ tx: TxChangedExecutedEvent }` | Execute transaction and wait for completion             |
-| `signMessage`           | `{ message: string }`        | `{ signature: string }`          | Sign an arbitrary message                               |
-| `ledgerApi`             | `LedgerApiRequest`           | `{ response: string }`           | Proxy JSON-API                                          |
-| `accountsChanged`       | none                         | `AccountsChangedEvent`           | Subscribe to account changes                            |
-| `txChanged`             | none                         | `TxChangedEvent`                 | Subscribe to transaction changes                        |
+| Method                  | Params                       | Result                                 | Description                                                                                   |
+| ----------------------- | ---------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `status`                | none                         | `StatusEvent`                          | Get connection status                                                                         |
+| `connect`               | none                         | `ConnectResult`                        | Connect and report whether the wallet authorized access                                       |
+| `disconnect`            | none                         | `null`                                 | Disconnect session                                                                            |
+| `isConnected`           | none                         | `ConnectResult`                        | Check whether the wallet is connected                                                         |
+| `getActiveNetwork`      | none                         | `Network`                              | Get active network                                                                            |
+| `listAccounts`          | none                         | `Wallet[]`                             | Get authorized accounts                                                                       |
+| `getPrimaryAccount`     | none                         | `Wallet`                               | Get the primary account                                                                       |
+| `prepareExecute`        | `JsPrepareSubmissionRequest` | `null`                                 | Prepare, sign, and execute transaction                                                        |
+| `prepareExecuteAndWait` | `JsPrepareSubmissionRequest` | `{ tx: TxChangedExecutedEvent }`       | Execute transaction and wait for completion                                                   |
+| `signMessage`           | `{ message: string }`        | `{ signature: string }`                | Sign an arbitrary message                                                                     |
+| `ledgerApi`             | `LedgerApiRequest`           | `Record<string, unknown> \| unknown[]` | Returns the Canton Ledger API JSON response as an object or array, depending on the endpoint. |
+| `accountsChanged`       | none                         | `AccountsChangedEvent`                 | Subscribe to account changes                                                                  |
+| `txChanged`             | none                         | `TxChangedEvent`                       | Subscribe to transaction changes                                                              |
 
 ### RPC Error Codes
 
@@ -172,14 +174,14 @@ const RpcErrorCode = {
   INVALID_PARAMS: -32602,
   INTERNAL_ERROR: -32603,
 
-  // EIP-1193 provider errors
+  // CIP-103 provider errors (inherited from EIP-1193)
   USER_REJECTED: 4001,
   UNAUTHORIZED: 4100,
   UNSUPPORTED_METHOD: 4200,
   DISCONNECTED: 4900,
   CHAIN_DISCONNECTED: 4901,
 
-  // EIP-1474 server errors
+  // CIP-103 server errors (inherited from EIP-1474)
   INVALID_INPUT: -32000,
   RESOURCE_NOT_FOUND: -32001,
   RESOURCE_UNAVAILABLE: -32002,
@@ -270,17 +272,21 @@ yarn workspace @sigilry/dapp typecheck
 yarn workspace @sigilry/dapp codegen
 ```
 
-## Reference Implementation
+## Spec alignment (CIP-103)
 
-This package follows the [splice-wallet-kernel](https://github.com/hyperledger-labs/splice-wallet-kernel) specification:
+Sigilry implements [CIP-103: dApp Connection API](https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md). CIP-103 §2 states: "The ground truth for the dApp API is maintained in the Splice Wallet repository in a machine-readable form." Per that rule, the canonical CIP-103 OpenRPC spec lives upstream at [`hyperledger-labs/splice-wallet-kernel`](https://github.com/hyperledger-labs/splice-wallet-kernel) and is vendored here at `api-specs/openrpc-dapp-api.json`.
 
-- **dApp API Spec**: Based on `core/dapp-api/openrpc.json`
-- **SpliceProvider Interface**: Compatible with `core/splice-provider/src/SpliceProvider.ts`
-- **WalletEvent Types**: Aligned with `core/types/src/index.ts`
+The CIP-103 prose is the conceptual standard; where the prose and the OpenRPC JSON diverge, the JSON wins. For per-method conformance status see [CIP-103 Conformance](https://sigilry.org/concepts/cip-103-conformance/).
 
-## Spec alignment
+### Upstream reference points
 
-Sigilry tracks the splice-wallet-kernel OpenRPC specs as the canonical source. CIP-0103 states: "The ground truth for the dApp API is maintained in the Splice Wallet repository in a machine-readable form." The CIP-0103 text is the conceptual standard; differences between the CIP text and the OpenRPC JSON are expected as the spec evolves.
+- **dApp API spec**: vendored from `core/dapp-api/openrpc.json` in `splice-wallet-kernel`
+- **SpliceProvider interface**: compatible with `core/splice-provider/src/SpliceProvider.ts`
+- **WalletEvent types**: aligned with `core/types/src/index.ts`
+
+## Maintainers
+
+Originally developed for production use at [Send](https://send.it) and maintained by the Send team. Issues and contributions are accepted on the public mirror at [github.com/sigilry/sigilry](https://github.com/sigilry/sigilry).
 
 ## Related
 

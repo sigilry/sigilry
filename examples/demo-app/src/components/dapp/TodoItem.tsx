@@ -21,7 +21,7 @@ interface TodoItemProps {
 }
 
 export const TodoItem = ({ contract, partyId, templateId }: TodoItemProps) => {
-  // choiceName must match DAML choice names on TodoItem ("Complete" | "Remove").
+  // The choice string must match the DAML choice names on TodoItem.
   // useExerciseChoice maps this call to a typed provider request.
   const { exerciseAsync, isPending, error } = useExerciseChoice();
   const [localError, setLocalError] = useState<string | null>(null);
@@ -29,7 +29,7 @@ export const TodoItem = ({ contract, partyId, templateId }: TodoItemProps) => {
   const isActionDisabled = isPending || !partyId;
   const titleClassName = `todo-title${isComplete ? " todo-title-complete" : ""}`;
 
-  const handleExercise = async (choiceName: "Complete" | "Remove") => {
+  const handleExercise = async (choice: "Complete" | "Remove") => {
     if (!partyId) {
       setLocalError("Connect a wallet before submitting commands.");
       return;
@@ -41,7 +41,7 @@ export const TodoItem = ({ contract, partyId, templateId }: TodoItemProps) => {
       await exerciseAsync({
         templateId,
         contractId: contract.contractId,
-        choiceName,
+        choice,
         choiceArgument: {},
         actAs: [partyId],
       });

@@ -48,6 +48,7 @@ describe("WindowTransport", () => {
     const transport = new WindowTransport(win as unknown as Window, {
       timeout: 100,
       targetOrigin: "https://example.com",
+      target: "browser:canton",
     });
 
     const resultPromise = transport.submit({ method: "status" });
@@ -55,6 +56,7 @@ describe("WindowTransport", () => {
     expect(win.messages).toHaveLength(1);
     const message = win.messages[0];
     expect(message.targetOrigin).toBe("https://example.com");
+    expect(message.message).toMatchObject({ target: "browser:canton" });
 
     const request = message.message as { request: { id: string | number | null } };
     const requestId = request.request.id;

@@ -62,6 +62,23 @@ export interface UseContractStreamResult {
   refresh: () => void;
 }
 
+function snapshotContractMatches(
+  existing: StreamedContract | undefined,
+  next: ActiveContract,
+): boolean {
+  return (
+    existing !== undefined &&
+    existing.contractId === next.contractId &&
+    existing.templateId === next.templateId &&
+    existing.payload === next.payload &&
+    existing.createdAt === next.createdAt &&
+    existing.signatories === next.signatories &&
+    existing.observers === next.observers &&
+    !existing.isNew &&
+    !existing.isRemoving
+  );
+}
+
 /**
  * Hook for streaming live contract updates
  *
@@ -188,8 +205,17 @@ export function useContractStream(options: UseContractStreamOptions = {}): UseCo
     // Always update the map - including clearing it when initialContracts is empty
     // This handles filter changes, party changes, or when the correct state is empty
     const now = Date.now();
-    setStreamedContracts(
-      new Map(
+    setStreamedContracts((prev) => {
+      if (
+        prev.size === initialContracts.length &&
+        initialContracts.every((contract) =>
+          snapshotContractMatches(prev.get(contract.contractId), contract),
+        )
+      ) {
+        return prev;
+      }
+
+      return new Map(
         initialContracts.map((c) => [
           c.contractId,
           {
@@ -199,8 +225,8 @@ export function useContractStream(options: UseContractStreamOptions = {}): UseCo
             isRemoving: false,
           },
         ]),
-      ),
-    );
+      );
+    });
   }, [initialContracts, isInitialLoading]);
 
   // Clear isNew flag after duration

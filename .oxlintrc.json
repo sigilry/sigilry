@@ -14,7 +14,8 @@
     "coverage",
     "**/generated/**",
     "docs/.astro",
-    "docs/dist"
+    "docs/dist",
+    ".rl.*"
   ],
   "overrides": [
     {

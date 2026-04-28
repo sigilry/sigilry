@@ -3,7 +3,7 @@ title: "@sigilry/dapp"
 description: Core provider, RPC client and server, message schemas, and transports.
 ---
 
-`@sigilry/dapp` is the core package for dApp to wallet extension communication. It provides the provider interface, JSON-RPC utilities, transport abstractions, and Zod schemas generated from OpenRPC.
+`@sigilry/dapp` is the core package for [CIP-103](https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md)-compliant dApp ↔ wallet extension communication on Canton Network. It provides the CIP-103 provider interface (`SpliceProvider`), JSON-RPC client and server, transport abstractions, and Zod schemas generated from the CIP-103 OpenRPC spec.
 
 ## Install
 
@@ -13,12 +13,12 @@ yarn add @sigilry/dapp
 
 ## Provider usage (dApp)
 
-The wallet extension injects a provider at `window.canton` that follows an EIP-1193 style API.
+The wallet extension injects a CIP-103 provider at `window.canton`. The object shape (`request`, `on`, `removeListener`) is the EIP-1193 pattern that CIP-103 adopts; method names, params, results, and error codes are fixed by the CIP-103 spec.
 
 ```ts
 async function connect() {
   const status = await window.canton.request({ method: "status" });
-  if (!status.isConnected) {
+  if (!status.connection.isConnected) {
     await window.canton.request({ method: "connect" });
   }
 
@@ -59,12 +59,10 @@ import {
 const server = createCantonServer({
   ...createStubHandlers(),
   status: async () => ({
-    kernel: { id: "send-extension", clientType: "browser" },
-    isConnected: true,
-    isNetworkConnected: true,
+    provider: { id: "send-extension", providerType: "browser" },
+    connection: { isConnected: true, isNetworkConnected: true },
   }),
   connect: async () => ({
-    kernel: { id: "send-extension", clientType: "browser" },
     isConnected: true,
     isNetworkConnected: true,
   }),
@@ -90,7 +88,7 @@ const server = createCantonServer({
     },
   }),
   signMessage: async () => ({ signature: "base64-signature" }),
-  ledgerApi: async () => ({ response: "" }),
+  ledgerApi: async () => ({ events: [] }),
 });
 
 window.addEventListener("message", async (event) => {

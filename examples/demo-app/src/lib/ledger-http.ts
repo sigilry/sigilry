@@ -1,6 +1,7 @@
 import type {
   JsPrepareSubmissionRequest,
   LedgerApiRequest,
+  LedgerApiResult,
   PrepareExecuteAndWaitResult,
 } from "@sigilry/dapp/schemas";
 
@@ -13,37 +14,11 @@ const SUBMIT_AND_WAIT_RESOURCE = "/v2/commands/submit-and-wait";
 
 type JsonRecord = Record<string, unknown>;
 
-interface CreateCommand {
-  templateId: string;
-  payload: JsonRecord;
-}
-
-interface ExerciseCommand {
-  templateId: string;
-  contractId: string;
-  choiceName: string;
-  choiceArgument: JsonRecord;
-}
-
-type JsonApiCommand =
-  | {
-      CreateCommand: {
-        templateId: string;
-        createArguments: JsonRecord;
-      };
-    }
-  | {
-      ExerciseCommand: {
-        templateId: string;
-        contractId: string;
-        choice: string;
-        choiceArgument: JsonRecord;
-      };
-    };
+type JsonApiCommand = JsPrepareSubmissionRequest["commands"][number];
 
 interface SubmitAndWaitResult {
   commandId: string;
-  response: unknown;
+  response: LedgerApiResult;
 }
 
 interface LedgerHttpOptions {
@@ -155,71 +130,11 @@ const generateCommandId = (): string => {
   return `cmd-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
 };
 
-const parseCreateCommand = (commands: JsonRecord): CreateCommand | null => {
-  const create = asRecord(commands.create);
-  if (!create) {
-    return null;
+const asCommandArray = (value: unknown): JsonApiCommand[] => {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new Error("Invalid commands payload: expected a non-empty command array.");
   }
-
-  const templateId = asString(create.templateId);
-  const payload = asRecord(create.payload);
-  if (!templateId || !payload) {
-    return null;
-  }
-
-  return { templateId, payload };
-};
-
-const parseExerciseCommand = (commands: JsonRecord): ExerciseCommand | null => {
-  const exercise = asRecord(commands.exercise);
-  if (!exercise) {
-    return null;
-  }
-
-  const templateId = asString(exercise.templateId);
-  const contractId = asString(exercise.contractId);
-  const choiceName = asString(exercise.choiceName);
-  const choiceArgument = asRecord(exercise.choiceArgument);
-
-  if (!templateId || !contractId || !choiceName || !choiceArgument) {
-    return null;
-  }
-
-  return { templateId, contractId, choiceName, choiceArgument };
-};
-
-const toJsonApiCommands = (commands: JsonRecord): JsonApiCommand[] => {
-  const normalized: JsonApiCommand[] = [];
-
-  const create = parseCreateCommand(commands);
-  if (create) {
-    normalized.push({
-      CreateCommand: {
-        templateId: create.templateId,
-        createArguments: create.payload,
-      },
-    });
-  }
-
-  const exercise = parseExerciseCommand(commands);
-  if (exercise) {
-    normalized.push({
-      ExerciseCommand: {
-        templateId: exercise.templateId,
-        contractId: exercise.contractId,
-        choice: exercise.choiceName,
-        choiceArgument: exercise.choiceArgument,
-      },
-    });
-  }
-
-  if (normalized.length === 0) {
-    throw new Error(
-      "Unsupported command payload. Expected 'commands.create' or 'commands.exercise' structure.",
-    );
-  }
-
-  return normalized;
+  return value as JsonApiCommand[];
 };
 
 const parseJsonResponse = (payload: string, context: string): unknown => {
@@ -264,15 +179,16 @@ const parseExecutedPayload = (
 const requestLedgerApi = async (
   requestMethod: LedgerApiRequest["requestMethod"],
   resource: string,
-  body: string | undefined,
+  body: LedgerApiRequest["body"],
   options: LedgerHttpOptions,
-): Promise<{ response: string }> => {
+): Promise<LedgerApiResult> => {
   const basePath = normalizeBasePath(options.basePath);
   const resourcePath = `${basePath}${normalizeResource(resource)}`;
+  const serializedBody = body === undefined ? undefined : JSON.stringify(body);
   const response = await fetch(resourcePath, {
     method: requestMethod,
-    headers: body !== undefined ? { "content-type": "application/json" } : undefined,
-    body,
+    headers: serializedBody !== undefined ? { "content-type": "application/json" } : undefined,
+    body: serializedBody,
   });
   const responseText = await response.text();
 
@@ -284,7 +200,10 @@ const requestLedgerApi = async (
     );
   }
 
-  return { response: responseText };
+  return parseJsonResponse(
+    responseText,
+    `Ledger API ${requestMethod} ${resource}`,
+  ) as LedgerApiResult;
 };
 
 // Cache resolved full party IDs keyed by userId.
@@ -299,18 +218,17 @@ export const resolveUserParty = async (
   if (cached) {
     return cached;
   }
-  const { response } = await requestLedgerApi(
-    "GET",
+  const response = await requestLedgerApi(
+    "get",
     `/v2/users/${encodeURIComponent(userId)}`,
     undefined,
     options,
   );
-  const parsed = JSON.parse(response);
-  const primaryParty: unknown = parsed?.user?.primaryParty;
+  const primaryParty: unknown = asRecord(asRecord(response)?.user)?.primaryParty;
   if (typeof primaryParty !== "string" || !primaryParty) {
     throw new Error(
       `User '${userId}' has no primaryParty configured. ` +
-        `Ensure the bootstrap script ran successfully. Response: ${response}`,
+        `Ensure the bootstrap script ran successfully. Response: ${JSON.stringify(response)}`,
     );
   }
   partyCache.set(userId, primaryParty);
@@ -338,12 +256,7 @@ const submitAndWait = async (
   params: JsPrepareSubmissionRequest,
   options: LedgerHttpOptions,
 ): Promise<SubmitAndWaitResult> => {
-  const commandsRecord = asRecord(params.commands);
-  if (!commandsRecord) {
-    throw new Error("Invalid commands payload: expected object.");
-  }
-
-  const commands = toJsonApiCommands(commandsRecord);
+  const commands = asCommandArray(params.commands);
   const userId = options.userId ?? DEFAULT_USER_ID;
   const commandId = params.commandId ?? generateCommandId();
   const rawActAs = params.actAs && params.actAs.length > 0 ? params.actAs : [];
@@ -367,14 +280,9 @@ const submitAndWait = async (
     commands: JSON.stringify(commands).slice(0, 500),
   });
 
-  let response: { response: string };
+  let response: LedgerApiResult;
   try {
-    response = await requestLedgerApi(
-      "POST",
-      SUBMIT_AND_WAIT_RESOURCE,
-      JSON.stringify(payload),
-      options,
-    );
+    response = await requestLedgerApi("post", SUBMIT_AND_WAIT_RESOURCE, payload, options);
   } catch (error) {
     if (error instanceof LedgerApiError) {
       throw new LedgerApiError(
@@ -389,34 +297,24 @@ const submitAndWait = async (
   // eslint-disable-next-line no-console
   console.debug("[ledger-http] submitAndWait response", {
     commandId,
-    responseLength: response.response.length,
-    responsePreview: response.response.slice(0, 500),
+    responseLength: JSON.stringify(response).length,
+    responsePreview: JSON.stringify(response).slice(0, 500),
   });
 
   return {
     commandId,
-    response: parseJsonResponse(response.response, `Ledger API POST ${SUBMIT_AND_WAIT_RESOURCE}`),
+    response,
   };
 };
 
 const hasLedgerLogChanged = createChangeGate();
 
-const extractTemplateIdFromBody = (body: string | undefined): string | null => {
+const extractTemplateIdFromBody = (body: unknown): string | null => {
   if (!body) {
     return null;
   }
-
-  // This is purely for log scoping, so a lightweight regex is fine.
-  const match = body.match(/"templateId":"([^"]+)"/);
-  return match?.[1] ?? null;
-};
-
-const parseJsonIfPossible = (input: string): unknown | null => {
-  try {
-    return JSON.parse(input);
-  } catch {
-    return null;
-  }
+  const value = findFirstScalarField(body, ["templateId"]);
+  return typeof value === "string" ? value : null;
 };
 
 const collectStringFieldValues = (
@@ -491,23 +389,22 @@ const findFirstScalarField = (
 };
 
 const summarizeActiveContractsResponse = (
-  response: string,
+  response: unknown,
 ): { dedupeValue: unknown; payload: Record<string, unknown> } => {
-  const parsed = parseJsonIfPossible(response);
-  if (!parsed) {
-    const preview = response.slice(0, 240);
+  if (!response || typeof response !== "object") {
+    const preview = String(response).slice(0, 240);
     return {
       dedupeValue: preview,
       payload: {
         parse: "raw",
-        responseLength: response.length,
+        responseLength: preview.length,
         responsePreview: preview,
       },
     };
   }
 
   const contractIds: string[] = [];
-  collectStringFieldValues(parsed, "contractId", contractIds);
+  collectStringFieldValues(response, "contractId", contractIds);
   const uniqueContractIds = [...new Set(contractIds)].sort();
   const previewIds = uniqueContractIds.slice(0, 3).map(shortenContractId);
 
@@ -522,22 +419,21 @@ const summarizeActiveContractsResponse = (
 };
 
 const summarizeLedgerEndResponse = (
-  response: string,
+  response: unknown,
 ): { dedupeValue: unknown; payload: Record<string, unknown> } => {
-  const parsed = parseJsonIfPossible(response);
-  if (!parsed) {
-    const preview = response.slice(0, 240);
+  if (!response || typeof response !== "object") {
+    const preview = String(response).slice(0, 240);
     return {
       dedupeValue: preview,
       payload: {
         parse: "raw",
-        responseLength: response.length,
+        responseLength: preview.length,
         responsePreview: preview,
       },
     };
   }
 
-  const offset = findFirstScalarField(parsed, ["ledgerEnd", "offset", "completionOffset"]);
+  const offset = findFirstScalarField(response, ["ledgerEnd", "offset", "completionOffset"]);
   return {
     dedupeValue: offset ?? "unknown",
     payload: {
@@ -549,7 +445,7 @@ const summarizeLedgerEndResponse = (
 export async function callLedgerApi(
   params: LedgerApiRequest,
   options: LedgerHttpOptions = {},
-): Promise<{ response: string }> {
+): Promise<LedgerApiResult> {
   const isActiveContracts = params.resource.includes("active-contracts");
   const isLedgerEnd = params.resource.includes("ledger-end");
 
@@ -565,7 +461,7 @@ export async function callLedgerApi(
   if (isActiveContracts || isLedgerEnd) {
     const requestSummary = {
       templateId: isActiveContracts ? extractTemplateIdFromBody(params.body) : null,
-      bodyPreview: params.body?.slice(0, 240) ?? null,
+      bodyPreview: params.body ? JSON.stringify(params.body).slice(0, 240) : null,
     };
     const key = `request:${logScope}`;
     if (hasLedgerLogChanged(key, requestSummary)) {
@@ -583,8 +479,8 @@ export async function callLedgerApi(
 
   if (isActiveContracts || isLedgerEnd) {
     const responseSummary = isActiveContracts
-      ? summarizeActiveContractsResponse(result.response)
-      : summarizeLedgerEndResponse(result.response);
+      ? summarizeActiveContractsResponse(result)
+      : summarizeLedgerEndResponse(result);
     const key = `response:${logScope}`;
     if (hasLedgerLogChanged(key, responseSummary.dedupeValue)) {
       // eslint-disable-next-line no-console

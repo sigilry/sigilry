@@ -34,45 +34,61 @@ export default defineConfig({
       },
       plugins: [
         starlightLlmsTxt({
-          details: `## Packages
+          details: `## What sigilry is
 
-- **@sigilry/dapp**: Core provider interface, RPC client/server, message schemas, transports (Window, HTTP, WS)
-- **@sigilry/react**: React Query hooks (useConnect, useAccounts, useSession) and CantonReactProvider
-- **@sigilry/cli**: TypeScript codegen from DAML DARs
+Sigilry is a [CIP-103](https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md)-compliant dApp connectivity library for Canton Network. CIP-103 is the approved Canton standard for dApp ↔ wallet JSON-RPC. Sigilry implements the CIP-103 dApp API as typed TypeScript clients/servers, ships generated Zod schemas for runtime validation, and exposes React Query hooks.
 
-## Quick Integration
+## Packages
+
+- **@sigilry/dapp**: CIP-103 provider interface (\`SpliceProvider\`), RPC client/server, message schemas, transports (Window, HTTP, WS).
+- **@sigilry/react**: React Query hooks (useConnect, useAccounts, useSession) and CantonReactProvider on top of \`@sigilry/dapp\`.
+- **@sigilry/cli**: TypeScript codegen from DAML DARs.
+- **@sigilry/splice-dars**: Vendored Splice DAR files with typed path exports for Canton Network development.
+
+## Quick integration
 
 \`\`\`ts
 async function connect() {
   const status = await window.canton.request({ method: "status" });
-  if (!status.isConnected) {
+  if (!status.connection.isConnected) {
     await window.canton.request({ method: "connect" });
   }
   return await window.canton.request({ method: "listAccounts" });
 }
 \`\`\`
 
-## Key RPC Methods
+## CIP-103 method surface (sigilry implementation)
 
-| Method | Description |
+| CIP-103 method | Description |
 |--------|-------------|
 | status | Get connection state |
-| connect | Initiate wallet connection |
+| connect | Initiate wallet connection (returns ConnectResult) |
 | disconnect | End wallet session |
-| listAccounts | Get user's account addresses |
+| isConnected | Check connection state without prompting |
+| listAccounts | Get authorized accounts |
+| getPrimaryAccount | Get the primary account |
+| getActiveNetwork | Get the active Canton network |
+| prepareExecute | Prepare, sign, and execute a transaction |
+| prepareExecuteAndWait | prepareExecute, then await completion |
+| signMessage | Sign an arbitrary message |
+| ledgerApi | Pass-through to Canton Ledger API v2 |
+| accountsChanged (event) | Subscribed via provider.on |
+| txChanged (event) | Subscribed via provider.on |
+
+See [CIP-103 Conformance](concepts/cip-103-conformance/) for the per-method conformance table.
 
 ## Architecture
 
 \`\`\`
 dApp UI
-  -> window.canton (EIP-1193 style provider)
-  -> JSON-RPC (OpenRPC + Zod validation)
+  -> window.canton (CIP-103 provider; EIP-1193 object shape)
+  -> JSON-RPC (CIP-103 OpenRPC schema + Zod validation)
   -> WindowTransport (postMessage)
   -> Wallet extension (RPC server)
   -> Canton Ledger API / DAML
 \`\`\`
 
-## React Usage
+## React usage
 
 \`\`\`tsx
 import { CantonReactProvider, useConnect, useAccounts } from "@sigilry/react";
@@ -90,11 +106,13 @@ function App() {
 
 - [Getting Started](getting-started/introduction/): Overview and quick start guide
 - [Architecture](concepts/architecture/): How the pieces fit together
+- [CIP-103 Conformance](concepts/cip-103-conformance/): Per-method conformance status, deviations, versioning
 - [Transports](concepts/transports/): WindowTransport, HTTP, WebSocket
 - [RPC Protocol](concepts/rpc-protocol/): JSON-RPC and Zod validation
-- [@sigilry/dapp](packages/dapp/): Core provider and RPC client
+- [@sigilry/dapp](packages/dapp/): CIP-103 provider and RPC client
 - [@sigilry/react](packages/react/): React hooks and context
 - [@sigilry/cli](packages/cli/): TypeScript codegen from DAML
+- [@sigilry/splice-dars](packages/splice-dars/): Vendored Splice DAR files
 - [API Reference](api-reference/readme/): Full TypeScript API documentation
 `,
           contentNegotiation: true,
@@ -104,6 +122,7 @@ function App() {
             "../packages/dapp/src/index.ts",
             "../packages/react/src/index.ts",
             "../packages/cli/src/index.ts",
+            "../packages/splice-dars/src/index.ts",
           ],
           tsconfig: "../tsconfig.json",
           output: "api-reference",
@@ -133,18 +152,30 @@ function App() {
             { label: "@sigilry/dapp", slug: "packages/dapp" },
             { label: "@sigilry/react", slug: "packages/react" },
             { label: "@sigilry/cli", slug: "packages/cli" },
+            { label: "@sigilry/splice-dars", slug: "packages/splice-dars" },
           ],
         },
         {
           label: "Concepts",
           items: [
             { label: "Architecture", slug: "concepts/architecture" },
+            { label: "CIP-103 Conformance", slug: "concepts/cip-103-conformance" },
             { label: "Transports", slug: "concepts/transports" },
             { label: "RPC Protocol", slug: "concepts/rpc-protocol" },
           ],
         },
+        {
+          label: "Migrations",
+          items: [
+            { label: "Overview & release cadence", slug: "migrations" },
+            { label: "1.x → 2.0", slug: "migrations/v1-to-v2" },
+          ],
+        },
         typeDocSidebarGroup,
       ],
+      components: {
+        Footer: "./src/components/Footer.astro",
+      },
       customCss: ["./src/styles/custom.css"],
       editLink: {
         baseUrl: "https://github.com/sigilry/sigilry/edit/main/docs/",

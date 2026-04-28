@@ -1,0 +1,31 @@
+---
+import Default from "@astrojs/starlight/components/Footer.astro";
+---
+
+<Default><slot /></Default>
+
+<div class="sigilry-footer-credit">
+  <p>
+    Sigilry is built and maintained by <a href="https://send.it" rel="noopener">Send</a>.
+    Source on <a href="https://github.com/sigilry/sigilry" rel="noopener">GitHub</a>.
+    Implements <a href="https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md" rel="noopener">CIP-103</a>.
+  </p>
+</div>
+
+<style>
+  .sigilry-footer-credit {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--sl-color-gray-5);
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+    text-align: center;
+  }
+  .sigilry-footer-credit a {
+    color: inherit;
+    text-decoration: underline;
+  }
+  .sigilry-footer-credit a:hover {
+    color: var(--sl-color-white);
+  }
+</style>

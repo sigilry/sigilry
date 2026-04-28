@@ -1,0 +1,53 @@
+---
+title: Migrations
+description: Release cadence, versioning policy, and per-version migration guides for Sigilry packages.
+---
+
+Sigilry's dApp RPC contract is still evolving alongside [CIP-0103](https://github.com/hyperledger-labs/splice-wallet-kernel) and downstream implementations. This section tracks breaking changes and gives consumers a concrete migration path per release line.
+
+## Release cadence
+
+Each published package follows semver, but the way we cut versions differs by maturity:
+
+| Package                    | Line  | Pre-release tag                   | Stability                                                                 |
+| -------------------------- | ----- | --------------------------------- | ------------------------------------------------------------------------- |
+| `@sigilry/dapp`            | `2.x` | `2.0.0-next.N` on `next` dist-tag | **Pre-stable** — breaking changes expected until the RPC contract settles |
+| `@sigilry/react`           | `2.x` | `2.0.0-next.N` on `next` dist-tag | **Pre-stable** — tracks `@sigilry/dapp`                                   |
+| `@sigilry/canton-json-api` | `1.x` | —                                 | Stable on wire shape; new endpoints are additive                          |
+| `@sigilry/cli`             | `0.x` | —                                 | Pre-1.0; breaking changes bump `0.MINOR`                                  |
+| `@sigilry/splice-dars`     | `0.x` | —                                 | Tracks a vendored Splice release; bumps with upstream                     |
+
+### Pre-stable pre-release policy (`@sigilry/dapp`, `@sigilry/react`)
+
+While the `2.x` line is pre-stable we publish to the `next` dist-tag rather than `latest`. Install with an explicit version:
+
+```bash
+# Pin to a specific pre-release
+yarn add @sigilry/dapp@2.0.0-next.3
+
+# Or track the rolling next tag (expect breaks, re-read the migration guide on bumps)
+yarn add @sigilry/dapp@next
+```
+
+A break within the `2.0.0-next.*` series increments `N`; it does **not** move to `2.0.1-next` or `2.1.0-next`. When the surface stabilizes we promote the current pre-release to `2.0.0` on `latest`; from that point `2.0.x` is patch-only and the next break cuts `3.0.0-next.0`.
+
+### When to expect a break
+
+- CIP-0103 spec changes in `hyperledger-labs/splice-wallet-kernel` that we track.
+- Ledger API wire shape changes in Canton's JSON API v2.
+- Internal shape changes in provider types, ConnectionState, or event payloads that only become observable once we move off the pre-release series.
+
+### What is **not** a break
+
+- Added optional hook options, new exported types, or new RPC methods that older wallets return `-32601` for.
+- Bug fixes that make implementations match the existing documented contract.
+
+## Migration guides
+
+Start at the guide for your current version and apply each subsequent guide in order.
+
+- [`1.x → 2.0`](./v1-to-v2/) — CIP-0103 alignment, EIP-6963-style discovery, nested `StatusEvent`, `ConnectResult`, `isConnected`, `ledgerApi` contract rewrite, command-atom payloads.
+
+## Canton-Send specific notes
+
+dApps integrating against the **Send Canton Wallet** extension (`@0xsend/canton-webext`) should also read that project's `docs/breaking-changes-for-dapp-developers.md` for the record-encoding shim and api-gateway behavior, which are layered on top of the sigilry contract.

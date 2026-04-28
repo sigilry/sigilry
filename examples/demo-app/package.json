@@ -1,6 +1,6 @@
 {
   "name": "@sigilry/demo-app",
-  "version": "0.0.2",
+  "version": "0.0.3-next.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,6 +10,7 @@
     "dev:frontend": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "bun test",
     "typecheck": "tsc --noEmit",
     "codegen": "sigilry codegen --config ./sigilry.config.ts"
   },

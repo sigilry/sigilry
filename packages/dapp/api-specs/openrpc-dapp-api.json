@@ -3,7 +3,7 @@
   "info": {
     "title": "Splice Wallet JSON-RPC dApp API",
     "version": "0.5.0",
-    "description": "An OpenRPC specification for the dapp to interact with a Wallet Gateway."
+    "description": "An OpenRPC specification for the dapp to interact with a Wallet Provider."
   },
   "methods": [
     {
@@ -15,7 +15,7 @@
           "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/StatusEvent"
         }
       },
-      "description": "Returns the current status of the wallet gateway session."
+      "description": "Returns the current status of the wallet provider session."
     },
     {
       "name": "connect",
@@ -23,10 +23,10 @@
       "result": {
         "name": "result",
         "schema": {
-          "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/StatusEvent"
+          "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/ConnectResult"
         }
       },
-      "description": "Ensures ledger connectivity and returns the connected network information along with the user access token. Network ID should follow CAIP-2 and represent the synchronizerId."
+      "description": "Ensures ledger connectivity and returns the connected network information along with the session information."
     },
     {
       "name": "disconnect",
@@ -37,7 +37,18 @@
           "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/Null"
         }
       },
-      "description": "Invoke a disconnect of the wallet gateway session."
+      "description": "Invoke a disconnect of the wallet provider session."
+    },
+    {
+      "name": "isConnected",
+      "params": [],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/ConnectResult"
+        }
+      },
+      "description": "Returns the connection status and the connected network information."
     },
     {
       "name": "getActiveNetwork",
@@ -85,6 +96,7 @@
         "schema": {
           "title": "prepareExecuteAndWaitResult",
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "tx": {
               "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/TxChangedExecutedEvent"
@@ -149,7 +161,7 @@
       "result": {
         "name": "result",
         "schema": {
-          "$ref": "api-specs/openrpc-user-api.json#/components/schemas/Wallet"
+          "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/Wallet"
         }
       },
       "description": "Returns the primary account."
@@ -183,44 +195,44 @@
         "type": "null",
         "description": "Represents a null value, used in responses where no data is returned."
       },
-      "KernelInfo": {
-        "title": "KernelInfo",
+      "Provider": {
+        "title": "Provider",
         "type": "object",
-        "description": "Represents a Wallet Gateway.",
+        "description": "Represents a Provider.",
+        "additionalProperties": false,
         "properties": {
           "id": {
-            "title": "id",
+            "title": "providerId",
             "type": "string",
-            "description": "The unique identifier of the Wallet Gateway."
+            "description": "The unique identifier of the Provider."
           },
-          "clientType": {
-            "title": "clientType",
+          "version": {
+            "title": "version",
+            "type": "string",
+            "description": "The version of the Provider."
+          },
+          "providerType": {
+            "title": "providerType",
             "type": "string",
             "enum": ["browser", "desktop", "mobile", "remote"],
-            "description": "The type of client that implements the Wallet Gateway."
+            "description": "The type of client that implements the Provider."
           },
           "url": {
             "title": "url",
             "type": "string",
-            "description": "The URL of the Wallet Gateway."
+            "description": "The URL of the Wallet Provider."
           },
           "userUrl": {
             "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/UserUrl"
           }
         },
-        "required": ["id", "clientType"]
+        "required": ["id", "providerType"]
       },
       "LedgerApiResult": {
         "title": "LedgerApiResult",
         "type": "object",
-        "description": "Ledger Api configuration options",
-        "properties": {
-          "response": {
-            "title": "response",
-            "type": "string"
-          }
-        },
-        "required": ["response"]
+        "description": "Ledger Api response",
+        "additionalProperties": true
       },
       "UserUrl": {
         "title": "UserUrl",
@@ -232,6 +244,7 @@
         "title": "JsPrepareSubmissionRequest",
         "type": "object",
         "description": "Structure representing the request for prepare and execute calls",
+        "additionalProperties": false,
         "properties": {
           "commandId": {
             "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/CommandId"
@@ -286,6 +299,7 @@
         "title": "DisclosedContract",
         "type": "object",
         "description": "Structure representing a disclosed contract for transaction execution",
+        "additionalProperties": false,
         "properties": {
           "templateId": {
             "title": "templateId",
@@ -310,15 +324,128 @@
         },
         "required": ["createdEventBlob"]
       },
+      "CreateCommand": {
+        "title": "CreateCommand",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["CreateCommand"],
+        "properties": {
+          "CreateCommand": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Canonical CIP-0103 CreateCommand shape. The createArguments payload stays opaque at the dApp boundary.",
+            "properties": {
+              "templateId": {
+                "title": "templateId",
+                "type": "string",
+                "description": "The template identifier of the contract to create."
+              },
+              "createArguments": {
+                "title": "createArguments",
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Opaque template-specific create payload forwarded to the Canton Ledger API."
+              }
+            },
+            "required": ["templateId", "createArguments"]
+          }
+        }
+      },
+      "ExerciseCommand": {
+        "title": "ExerciseCommand",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ExerciseCommand"],
+        "properties": {
+          "ExerciseCommand": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Canonical CIP-0103 ExerciseCommand shape. The choiceArgument payload stays opaque at the dApp boundary.",
+            "properties": {
+              "templateId": {
+                "title": "templateId",
+                "type": "string",
+                "description": "The template identifier of the contract being exercised."
+              },
+              "contractId": {
+                "title": "contractId",
+                "type": "string",
+                "description": "The contract identifier to exercise."
+              },
+              "choice": {
+                "title": "choice",
+                "type": "string",
+                "description": "The choice name to exercise."
+              },
+              "choiceArgument": {
+                "title": "choiceArgument",
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Opaque choice payload forwarded to the Canton Ledger API."
+              }
+            },
+            "required": ["templateId", "contractId", "choice", "choiceArgument"]
+          }
+        }
+      },
+      "CreateAndExerciseCommand": {
+        "title": "CreateAndExerciseCommand",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["CreateAndExerciseCommand"],
+        "properties": {
+          "CreateAndExerciseCommand": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Inner shape is defined by the Canton Ledger API CreateAndExerciseCommand schema; do not re-specify here."
+          }
+        }
+      },
+      "ExerciseByKeyCommand": {
+        "title": "ExerciseByKeyCommand",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ExerciseByKeyCommand"],
+        "properties": {
+          "ExerciseByKeyCommand": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Inner shape is defined by the Canton Ledger API ExerciseByKeyCommand schema; do not re-specify here."
+          }
+        }
+      },
+      "Command": {
+        "title": "Command",
+        "description": "A Daml command atom. Mirror of the Canton Ledger API Command union; inner shapes are intentionally opaque so the dApp layer never drifts from the Ledger API contract.",
+        "oneOf": [
+          {
+            "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/CreateCommand"
+          },
+          {
+            "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/ExerciseCommand"
+          },
+          {
+            "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/CreateAndExerciseCommand"
+          },
+          {
+            "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/ExerciseByKeyCommand"
+          }
+        ]
+      },
       "JsCommands": {
         "title": "JsCommands",
-        "type": "object",
-        "description": "Structure representing JS commands for transaction execution"
+        "type": "array",
+        "minItems": 1,
+        "description": "Non-empty array of Daml command atoms to submit atomically as a single transaction.",
+        "items": {
+          "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/Command"
+        }
       },
       "JsPrepareSubmissionResponse": {
         "title": "JsPrepareSubmissionResponse",
         "type": "object",
         "description": "Structure representing the result of a prepareReturn call",
+        "additionalProperties": false,
         "properties": {
           "preparedTransaction": {
             "title": "preparedTransaction",
@@ -336,11 +463,12 @@
         "title": "LedgerApiRequest",
         "type": "object",
         "description": "Ledger API request structure",
+        "additionalProperties": false,
         "properties": {
           "requestMethod": {
             "title": "requestMethod",
             "type": "string",
-            "enum": ["GET", "POST", "PUT", "DELETE"]
+            "enum": ["get", "post", "patch", "put", "delete"]
           },
           "resource": {
             "title": "resource",
@@ -348,7 +476,26 @@
           },
           "body": {
             "title": "body",
-            "type": "string"
+            "type": "object",
+            "additionalProperties": true
+          },
+          "query": {
+            "title": "query",
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Query parameters as key-value pairs."
+          },
+          "path": {
+            "title": "path",
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Path parameters as key-value pairs."
+          },
+          "headers": {
+            "title": "headers",
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Additional HTTP headers to include with the request."
           }
         },
         "required": ["requestMethod", "resource"]
@@ -358,7 +505,7 @@
         "type": "array",
         "description": "Event emitted when the user's accounts change.",
         "items": {
-          "$ref": "api-specs/openrpc-user-api.json#/components/schemas/Wallet"
+          "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/Wallet"
         }
       },
       "ListAccountsResult": {
@@ -366,7 +513,7 @@
         "type": "array",
         "description": "An array of accounts that the user has authorized the dapp to access..",
         "items": {
-          "$ref": "api-specs/openrpc-user-api.json#/components/schemas/Wallet"
+          "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/Wallet"
         }
       },
       "CommandId": {
@@ -512,17 +659,20 @@
           }
         ]
       },
-      "StatusEvent": {
-        "title": "StatusEvent",
+      "ConnectResult": {
+        "title": "ConnectResult",
         "type": "object",
+        "additionalProperties": false,
         "properties": {
-          "kernel": {
-            "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/KernelInfo"
-          },
           "isConnected": {
-            "title": "isConnected",
+            "title": "isConnectedValue",
             "type": "boolean",
             "description": "Whether or not the user is authenticated with the Wallet."
+          },
+          "reason": {
+            "title": "reason",
+            "type": "string",
+            "description": "The reason why the user is not connected to the Wallet."
           },
           "isNetworkConnected": {
             "title": "isNetworkConnected",
@@ -534,34 +684,37 @@
             "type": "string",
             "description": "If not connected to a network, the reason why."
           },
+          "userUrl": {
+            "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/UserUrl"
+          }
+        },
+        "required": ["isConnected", "isNetworkConnected"]
+      },
+      "StatusEvent": {
+        "title": "StatusEvent",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "provider": {
+            "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/Provider"
+          },
+          "connection": {
+            "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/ConnectResult"
+          },
           "network": {
             "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/Network"
           },
           "session": {
-            "title": "session",
-            "type": "object",
-            "description": "Session information, if authenticated.",
-            "properties": {
-              "accessToken": {
-                "title": "accessToken",
-                "type": "string",
-                "description": "JWT authentication token."
-              },
-              "userId": {
-                "title": "userId",
-                "type": "string",
-                "description": "The user identifier."
-              }
-            },
-            "required": ["accessToken", "userId"]
+            "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/Session"
           }
         },
-        "required": ["kernel", "isConnected", "isNetworkConnected"]
+        "required": ["provider", "connection"]
       },
       "SignMessageRequest": {
         "title": "SignMessageRequest",
         "type": "object",
         "description": "Request to sign a message.",
+        "additionalProperties": false,
         "properties": {
           "message": {
             "title": "message",
@@ -574,6 +727,7 @@
       "SignMessageResult": {
         "title": "SignMessageResult",
         "type": "object",
+        "additionalProperties": false,
         "description": "Result of signing a message.",
         "properties": {
           "signature": {
@@ -588,6 +742,7 @@
         "title": "network",
         "type": "object",
         "description": "Network information, if connected to a network.",
+        "additionalProperties": false,
         "properties": {
           "networkId": {
             "title": "networkId",
@@ -595,21 +750,117 @@
             "description": "A CAIP-2 compliant chain ID, e.g. 'canton:da-mainnet'."
           },
           "ledgerApi": {
-            "title": "LedgerApiConfig",
-            "type": "object",
-            "description": "Ledger API configuration.",
-            "properties": {
-              "baseUrl": {
-                "title": "baseUrl",
-                "type": "string",
-                "format": "uri",
-                "description": "The base URL of the ledger API."
-              }
-            },
-            "required": ["baseUrl"]
+            "title": "ledgerApiUrl",
+            "type": "string",
+            "description": "The base URL of the ledger API.",
+            "format": "uri"
+          },
+          "accessToken": {
+            "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/AccessToken"
           }
         },
         "required": ["networkId"]
+      },
+      "AccessToken": {
+        "title": "accessToken",
+        "type": "string",
+        "description": "JWT authentication token."
+      },
+      "Session": {
+        "title": "session",
+        "type": "object",
+        "description": "Session information, if authenticated.",
+        "additionalProperties": false,
+        "properties": {
+          "accessToken": {
+            "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/AccessToken"
+          },
+          "userId": {
+            "title": "userId",
+            "type": "string",
+            "description": "The user identifier."
+          }
+        },
+        "required": ["accessToken", "userId"]
+      },
+      "Wallet": {
+        "title": "Wallet",
+        "type": "object",
+        "description": "Structure representing a wallet",
+        "additionalProperties": false,
+        "properties": {
+          "primary": {
+            "title": "primary",
+            "type": "boolean",
+            "description": "Set as primary wallet for dApp usage."
+          },
+          "partyId": {
+            "title": "partyId",
+            "type": "string",
+            "description": "The party ID corresponding to the wallet."
+          },
+          "status": {
+            "title": "walletStatus",
+            "type": "string",
+            "enum": ["initialized", "allocated", "removed"],
+            "description": "The status of the wallet."
+          },
+          "hint": {
+            "title": "hint",
+            "type": "string",
+            "description": "The party hint and name of the wallet."
+          },
+          "publicKey": {
+            "title": "publicKey",
+            "type": "string",
+            "description": "The public key of the party."
+          },
+          "namespace": {
+            "title": "namespace",
+            "type": "string",
+            "description": "The namespace of the party."
+          },
+          "networkId": {
+            "title": "networkId",
+            "type": "string",
+            "description": "The network ID the wallet corresponds to."
+          },
+          "signingProviderId": {
+            "title": "signingProviderId",
+            "type": "string",
+            "description": "The signing provider ID the wallet corresponds to."
+          },
+          "externalTxId": {
+            "title": "externalTxId",
+            "type": "string",
+            "description": "Unique identifier of the signed transaction given by the Signing Provider. This may not be the same as the internal txId given by the Wallet Gateway."
+          },
+          "topologyTransactions": {
+            "title": "topologyTransactions",
+            "type": "string",
+            "description": "The topology transactions"
+          },
+          "disabled": {
+            "title": "disabled",
+            "type": "boolean",
+            "description": "Whether the wallet is disabled. Wallets are disabled when no signing provider matches the party's namespace during sync. Disabled wallets use participant as the default signing provider."
+          },
+          "reason": {
+            "title": "reason",
+            "type": "string",
+            "description": "Reason for the wallet state, e.g., 'no signing provider matched'."
+          }
+        },
+        "required": [
+          "primary",
+          "partyId",
+          "status",
+          "hint",
+          "publicKey",
+          "namespace",
+          "networkId",
+          "signingProviderId"
+        ]
       }
     }
   }

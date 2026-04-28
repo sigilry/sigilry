@@ -33,18 +33,19 @@ Sigilry uses JSON-RPC 2.0 for dApp to wallet communication. Methods and schemas 
 
 ## Methods
 
-| Method                  | Params                       | Result                           |
-| ----------------------- | ---------------------------- | -------------------------------- |
-| `status`                | none                         | `StatusEvent`                    |
-| `connect`               | none                         | `StatusEvent`                    |
-| `disconnect`            | none                         | `null`                           |
-| `getActiveNetwork`      | none                         | `Network`                        |
-| `listAccounts`          | none                         | `Wallet[]`                       |
-| `getPrimaryAccount`     | none                         | `Wallet`                         |
-| `prepareExecute`        | `JsPrepareSubmissionRequest` | `null`                           |
-| `prepareExecuteAndWait` | `JsPrepareSubmissionRequest` | `{ tx: TxChangedExecutedEvent }` |
-| `signMessage`           | `{ message: string }`        | `{ signature: string }`          |
-| `ledgerApi`             | `LedgerApiRequest`           | `{ response: string }`           |
+| Method                  | Params                       | Result                                 |
+| ----------------------- | ---------------------------- | -------------------------------------- |
+| `status`                | none                         | `StatusEvent`                          |
+| `connect`               | none                         | `ConnectResult`                        |
+| `disconnect`            | none                         | `null`                                 |
+| `isConnected`           | none                         | `ConnectResult`                        |
+| `getActiveNetwork`      | none                         | `Network`                              |
+| `listAccounts`          | none                         | `Wallet[]`                             |
+| `getPrimaryAccount`     | none                         | `Wallet`                               |
+| `prepareExecute`        | `JsPrepareSubmissionRequest` | `null`                                 |
+| `prepareExecuteAndWait` | `JsPrepareSubmissionRequest` | `{ tx: TxChangedExecutedEvent }`       |
+| `signMessage`           | `{ message: string }`        | `{ signature: string }`                |
+| `ledgerApi`             | `LedgerApiRequest`           | `Record<string, unknown> \| unknown[]` |
 
 Event methods are defined in the OpenRPC spec but delivered as provider events:
 

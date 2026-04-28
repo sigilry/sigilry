@@ -53,7 +53,7 @@ async function connectAndListAccounts() {
   }
 
   const status = await window.canton.request({ method: "status" });
-  if (!status.isConnected) {
+  if (!status.connection.isConnected) {
     await window.canton.request({ method: "connect" });
   }
 
@@ -130,4 +130,5 @@ export function WalletPanel() {
 ## 8. Next steps
 
 - Learn the protocol in [RPC Protocol](../../concepts/rpc-protocol/).
-- Explore package docs: [@sigilry/dapp](../../packages/dapp/), [@sigilry/react](../../packages/react/), [@sigilry/cli](../../packages/cli/).
+- Explore package docs: [@sigilry/dapp](../../packages/dapp/), [@sigilry/react](../../packages/react/), [@sigilry/cli](../../packages/cli/), [@sigilry/splice-dars](../../packages/splice-dars/).
+- Generate TypeScript types from Splice DARs: install `@sigilry/splice-dars` and `@sigilry/cli`, then run `sigilry codegen`.

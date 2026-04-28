@@ -1,0 +1,143 @@
+---
+title: CIP-103 Conformance
+description: How Sigilry conforms to CIP-103, the Canton Network dApp API standard.
+---
+
+Sigilry is a [CIP-103](https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md)-compliant
+dApp connectivity library for Canton Network. This page is the citeable source of truth for what that
+means in practice: which CIP-103 methods sigilry implements, where the provider object, error codes,
+and event semantics come from in the spec, and any deviations from the normative text.
+
+This page is intended to be useful to two audiences:
+
+- **Humans**: reviewers, auditors, and dApp builders evaluating whether sigilry behaves as the spec mandates.
+- **Agents** (Claude Code, Codex, ChatGPT): copy-paste-ready facts about sigilry's CIP-103 surface, with
+  exact method names and links back to the canonical spec.
+
+## What CIP-103 is
+
+CIP-103 — _dApp Connection API_ — is the Canton Network standard governing how dApps connect to wallet
+extensions over JSON-RPC. It specifies:
+
+- The provider object exposed at `window.canton`, in the EIP-1193-derived shape (`request`, `on`,
+  `removeListener`).
+- The full set of dApp-callable JSON-RPC methods (`status`, `connect`, `disconnect`, `isConnected`,
+  `listAccounts`, `getPrimaryAccount`, `getActiveNetwork`, `prepareExecute`, `prepareExecuteAndWait`,
+  `signMessage`, `ledgerApi`).
+- The event surface (`accountsChanged`, `txChanged`).
+- Error code allocations adopted from EIP-1193 (provider errors, 4001/4100/4200/4900/4901) and EIP-1474
+  (server errors, -32000..-32099).
+- The rule that the OpenRPC JSON in
+  [`hyperledger-labs/splice-wallet-kernel`](https://github.com/hyperledger-labs/splice-wallet-kernel)
+  is the ground truth for the API surface where the prose and the schema diverge.
+
+**Status:** Approved.
+**Canonical source:** [github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md](https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md)
+
+## Per-method conformance
+
+The table below lists every CIP-103 method, where the `@sigilry/dapp` handler lives, and the conformance
+status. "Pass" means: the method is implemented; its **params** are runtime-validated against the
+CIP-103 OpenRPC schema via the generated Zod schemas in `packages/dapp/src/generated/schemas.ts`
+(`packages/dapp/src/rpc/server.ts`); and the behavior matches the CIP-103 prose to the extent it is
+testable in isolation.
+
+Result shapes are typed via TypeScript and the generated schemas, but are **not** currently
+runtime-validated by the server before being returned, nor by the client on receipt. Closing that
+gap — bidirectional Zod validation plus a vendor-neutral CIP-103 interop harness — is Milestone 3
+of the [sigilry development fund proposal](#interop-test-harness) below.
+
+| CIP-103 method            | Sigilry surface                              | Status |
+| ------------------------- | -------------------------------------------- | ------ |
+| `status`                  | `client.status()` / `window.canton.request`  | Pass   |
+| `connect`                 | `client.connect()` / `window.canton.request` | Pass   |
+| `disconnect`              | `client.disconnect()`                        | Pass   |
+| `isConnected`             | `client.isConnected()`                       | Pass   |
+| `getActiveNetwork`        | `client.getActiveNetwork()`                  | Pass   |
+| `listAccounts`            | `client.listAccounts()`                      | Pass   |
+| `getPrimaryAccount`       | `client.getPrimaryAccount()`                 | Pass   |
+| `prepareExecute`          | `client.prepareExecute(req)`                 | Pass   |
+| `prepareExecuteAndWait`   | `client.prepareExecuteAndWait(req)`          | Pass   |
+| `signMessage`             | `client.signMessage({ message })`            | Pass   |
+| `ledgerApi`               | `client.ledgerApi(req)`                      | Pass   |
+| `accountsChanged` (event) | `provider.on('accountsChanged', listener)`   | Pass   |
+| `txChanged` (event)       | `provider.on('txChanged', listener)`         | Pass   |
+
+The OpenRPC source of truth for this table is `packages/dapp/api-specs/openrpc-dapp-api.json`.
+
+## Provider object shape
+
+CIP-103 specifies the dApp-facing provider in the EIP-1193 object shape: a `request` method for
+JSON-RPC calls, plus an `on` / `removeListener` event API for `accountsChanged` / `txChanged`. Sigilry
+implements this contract through the
+[`SpliceProvider`](../../api-reference/dapp/src/interfaces/spliceprovider/) interface in
+`@sigilry/dapp` and exposes it at `window.canton`.
+
+```ts
+// Canonical CIP-103 call shape
+const status = await window.canton.request({ method: "status" });
+
+// Event subscription
+window.canton.on("accountsChanged", (accounts) => {
+  /* ... */
+});
+```
+
+## Error codes
+
+CIP-103 normatively adopts:
+
+- **EIP-1193 provider error codes** (4001 user-rejected, 4100 unauthorized, 4200 unsupported-method,
+  4900 disconnected, 4901 chain-disconnected).
+- **EIP-1474 server error range** (-32000 through -32099).
+
+Sigilry exposes these as `RpcErrorCode` from `@sigilry/dapp`. See the
+[API reference](../../api-reference/dapp/src/type-aliases/rpcerrorcode/) for the full list and
+`packages/dapp/src/rpc/errors.ts` for the source.
+
+## Known deviations from CIP-103
+
+None at this revision.
+
+If a divergence is identified, it is filed against
+[canton-foundation/cips](https://github.com/canton-foundation/cips/issues) with a proposed amendment,
+and tracked here until resolved.
+
+## Versioning
+
+`CANTON_DAPP_API_VERSION` (exported from `@sigilry/dapp`) records the CIP-103 dApp API revision that
+sigilry implements. The `@sigilry/dapp` package version itself follows changeset-managed semver
+independently — package bumps may ship without a CIP-103 revision change, but a CIP-103 revision change
+always coincides with a major or minor `@sigilry/dapp` bump.
+
+```ts
+import { CANTON_DAPP_API_VERSION } from "@sigilry/dapp";
+console.log(CANTON_DAPP_API_VERSION); // CIP-103 dApp API revision
+```
+
+## Interop test harness
+
+A standalone, vendor-neutral CIP-103 interop harness — runnable against any conformant client — is
+planned as Milestone 3 of the sigilry development fund proposal. It is not yet published.
+
+When it lands, this page will link to:
+
+- The harness repository under a neutral home.
+- Sigilry's most recent harness run (timestamp + commit + result).
+- The list of independent CIP-103 implementations the harness has been run against.
+
+Until then, conformance evidence is the per-method table above plus the test suite at
+`packages/dapp/__tests__/`.
+
+## Production reference
+
+Sigilry is built and maintained by [Send](https://send.it) and runs in production powering Send's
+Canton Network dApps. Production-pressure architectural decisions in `@sigilry/dapp` and
+`@sigilry/react` reflect what Send needed to ship real consumer flows on Canton Network — not what
+was theorized.
+
+## Contributing conformance reports
+
+If you operate a CIP-103 implementation other than sigilry and want to publish a conformance report
+against the same OpenRPC schema, file an issue at
+[canton-foundation/cips](https://github.com/canton-foundation/cips/issues) referencing this page.

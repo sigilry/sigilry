@@ -103,6 +103,7 @@ describe("Message Schemas", () => {
     test("validates request message", () => {
       const msg = {
         type: WalletEvent.SPLICE_WALLET_REQUEST as const,
+        target: "browser:canton",
         request: {
           jsonrpc: "2.0" as const,
           id: "123",
@@ -127,7 +128,7 @@ describe("Message Schemas", () => {
     });
 
     test("validates ext ready message", () => {
-      const msg = { type: WalletEvent.SPLICE_WALLET_EXT_READY as const };
+      const msg = { type: WalletEvent.SPLICE_WALLET_EXT_READY as const, target: "browser:canton" };
       const parsed = SpliceMessage.parse(msg);
       expect(parsed.type).toBe(WalletEvent.SPLICE_WALLET_EXT_READY);
     });
@@ -142,6 +143,7 @@ describe("Message Schemas", () => {
       const msg = {
         type: WalletEvent.SPLICE_WALLET_EXT_OPEN as const,
         url: "https://wallet.example.com/approve?tx=123",
+        target: "browser:canton",
       };
       const parsed = SpliceMessage.parse(msg);
       expect(parsed.type).toBe(WalletEvent.SPLICE_WALLET_EXT_OPEN);

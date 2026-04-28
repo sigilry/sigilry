@@ -60,12 +60,14 @@ export interface UseSubmitCommandResult {
  *
  *   const handleTransfer = () => {
  *     submit({
- *       commands: {
- *         // DAML command structure
- *         templateId: 'Module:Template',
- *         choice: 'Transfer',
- *         argument: { recipient: 'alice::1234' },
- *       },
+ *       commands: [{
+ *         ExerciseCommand: {
+ *           templateId: 'Module:Template',
+ *           contractId: '00deadbeef',
+ *           choice: 'Transfer',
+ *           choiceArgument: { recipient: 'alice::1234' },
+ *         },
+ *       }],
  *       actAs: [partyId],
  *     })
  *   }

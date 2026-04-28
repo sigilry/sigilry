@@ -22,7 +22,7 @@ export interface ExerciseChoiceRequest {
   /** Template ID (e.g., 'Splice.Wallet.Payment:PaymentRequest') */
   templateId: string;
   /** Choice name to exercise */
-  choiceName: string;
+  choice: string;
   /** Choice argument (the payload for the choice) */
   choiceArgument: Record<string, unknown>;
   /** Unique command identifier (auto-generated if not provided) */
@@ -65,7 +65,7 @@ export interface UseExerciseChoiceResult {
  *     exercise({
  *       contractId,
  *       templateId: 'Splice.Wallet.Payment:PaymentRequest',
- *       choiceName: 'PaymentRequest_Accept',
+ *       choice: 'PaymentRequest_Accept',
  *       choiceArgument: {},
  *       actAs: [partyId],
  *     })
@@ -91,7 +91,7 @@ export interface UseExerciseChoiceResult {
  *     exercise({
  *       contractId,
  *       templateId: PaymentRequest.templateId,
- *       choiceName: 'PaymentRequest_Accept',
+ *       choice: 'PaymentRequest_Accept',
  *       choiceArgument: {},
  *       actAs: [partyId],
  *     })
@@ -112,14 +112,16 @@ export function useExerciseChoice(): UseExerciseChoiceResult {
     useMutation({
       mutationFn: async (params: ExerciseChoiceRequest): Promise<SubmitCommandResult> => {
         // Build the exercise command structure
-        const commands = {
-          exercise: {
-            templateId: params.templateId,
-            contractId: params.contractId,
-            choiceName: params.choiceName,
-            choiceArgument: params.choiceArgument,
+        const commands = [
+          {
+            ExerciseCommand: {
+              templateId: params.templateId,
+              contractId: params.contractId,
+              choice: params.choice,
+              choiceArgument: params.choiceArgument,
+            },
           },
-        };
+        ];
 
         const result = await cantonRequest("prepareExecuteAndWait", {
           commandId: params.commandId,

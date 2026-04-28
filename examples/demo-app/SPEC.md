@@ -23,6 +23,16 @@
 - Production deployment hardening.
 - Serving as a complete product UI.
 
+## Examples Gallery
+
+In addition to the end-to-end Todo integration (`<DAppPane />`), the demo app ships three polished examples that mirror the browser-console gist patterns external teams currently reference. Each example is a React component that uses `@sigilry/react` hooks exclusively, with `useLedgerApi` reserved for cases where there is no dedicated hook.
+
+| Example          | Phase   | Hook stack                                                                                  | Notes                                                                                             |
+| ---------------- | ------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Active Contracts | Phase 3 | `useConnect`, `useActiveAccount`, `useActiveContracts()`                                    | Wildcard query uses the current hook surface by omitting `templateFilter`; groups by template id. |
+| Sign Message     | Phase 4 | `useSignMessage`, `useActiveAccount`, signature verify utility in `src/lib/ecdsa-verify.ts` | Adds client-side verification for the local Ed25519 simulator and ECDSA P-256 wallets.            |
+| USDCx Transfer   | Phase 5 | `useActiveAccount`, `useLedgerApi`, `useSubmitCommand`                                      | Interface-filter gap in `useActiveContracts` requires the `useLedgerApi` escape hatch.            |
+
 ## Related Specs
 
 - `SPEC.md`

@@ -9,7 +9,13 @@
     "packages/react": {
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"],
-      "ignore": ["src/hooks/index.ts", "src/hooks/useExerciseChoice.ts"]
+      "ignore": ["src/hooks/index.ts", "src/hooks/useExerciseChoice.ts"],
+      "ignoreDependencies": [
+        "@happy-dom/global-registrator",
+        "@testing-library/dom",
+        "@testing-library/react",
+        "react-dom"
+      ]
     },
     "packages/cli": {
       "project": ["src/**/*.ts"]
@@ -17,14 +23,13 @@
     "packages/canton-json-api": {
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts", "!src/generated/**"],
-      "ignore": ["openapi-ts.config.ts"],
-      "ignoreDependencies": ["zod"]
+      "ignore": ["openapi-ts.config.ts"]
     },
     "packages/splice-dars": {
       "project": ["src/**/*.ts", "scripts/**/*.ts"]
     },
     "examples/demo-app": {
-      "entry": ["src/main.tsx", "sigilry.config.ts"],
+      "entry": ["src/main.tsx", "src/**/*.test.{ts,tsx}", "sigilry.config.ts"],
       "project": ["src/**/*.{ts,tsx}"]
     },
     "docs": {

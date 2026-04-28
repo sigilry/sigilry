@@ -3,7 +3,7 @@ title: Architecture
 description: How Sigilry components fit together across dApp and wallet.
 ---
 
-Sigilry defines a thin, typed layer between dApps and wallet extensions. The primary contract is JSON-RPC over a transport such as `postMessage`.
+Sigilry implements [CIP-103](https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md) — Canton Network's dApp API standard — as a thin, typed layer between dApps and wallet extensions. The primary contract is JSON-RPC over a transport such as `postMessage`, with method names, params, results, and event semantics fixed by the CIP-103 OpenRPC schema. See [CIP-103 Conformance](../cip-103-conformance/) for the per-method conformance status.
 
 ## System diagram
 
@@ -20,11 +20,11 @@ Developer tooling
 
 ## Responsibilities
 
-- **dApp**: Calls `window.canton.request({ method, params })` and reacts to events.
-- **Provider**: Implements EIP-1193 style `request` and event subscription.
-- **RPC server**: Validates params with Zod and routes to handlers.
+- **dApp**: Calls `window.canton.request({ method, params })` and reacts to CIP-103 events.
+- **Provider**: Implements the CIP-103 dApp API. Object shape (`request`, `on`, `removeListener`) follows the EIP-1193 pattern that CIP-103 adopts.
+- **RPC server**: Validates params with Zod schemas generated from the CIP-103 OpenRPC spec and routes to handlers.
 - **Transport**: Moves requests and responses between contexts.
-- **Schemas**: Generated from OpenRPC and used for runtime validation.
+- **Schemas**: Generated from the CIP-103 OpenRPC spec and used for runtime validation.
 
 ## Data flow
 
@@ -36,6 +36,7 @@ Developer tooling
 
 ## Versioning and specs
 
-- `CANTON_DAPP_API_VERSION` exposes the dApp API version in `@sigilry/dapp`.
-- OpenRPC specs live in `specs/` and `packages/dapp/api-specs/`.
-- Zod schemas are generated in `packages/dapp/src/generated`.
+- `CANTON_DAPP_API_VERSION` exposes the CIP-103 dApp API revision implemented by `@sigilry/dapp`.
+- The canonical CIP-103 OpenRPC schema lives at `packages/dapp/api-specs/openrpc-dapp-api.json`.
+- Zod schemas are generated into `packages/dapp/src/generated` from that OpenRPC source.
+- For per-method conformance status see [CIP-103 Conformance](../cip-103-conformance/).

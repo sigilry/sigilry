@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useActiveAccount, useActiveContracts, useSubmitCommand } from "@sigilry/react";
 
-import { demo_todo_package } from "../../generated";
+import { demo_todo_package } from "../../generated/index";
 
 import { AddTodoForm } from "./AddTodoForm";
 import { ConnectionStatus } from "./ConnectionStatus";
@@ -137,14 +137,16 @@ export const DAppPane = () => {
 
     try {
       const result = await submitCreateFactory({
-        commands: {
-          create: {
-            templateId: TODO_LIST_TEMPLATE_ID,
-            payload: {
-              owner: partyId,
+        commands: [
+          {
+            CreateCommand: {
+              templateId: TODO_LIST_TEMPLATE_ID,
+              createArguments: {
+                owner: partyId,
+              },
             },
           },
-        },
+        ],
         actAs: [partyId],
       });
       console.debug("[dapp] createFactory result", result);
@@ -244,7 +246,7 @@ export const DAppPane = () => {
         <AddTodoForm
           partyId={partyId}
           templateId={TODO_LIST_TEMPLATE_ID}
-          choiceName={demo_todo_package.TodoList.TodoList.AddItem.choiceName}
+          choice={demo_todo_package.TodoList.TodoList.AddItem.choiceName}
           todoListContractId={todoListContractId}
           onPendingChange={setPendingTodo}
           onSubmitSuccess={handleSubmitSuccess}

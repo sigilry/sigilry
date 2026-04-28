@@ -8,7 +8,7 @@ import { docsLinks } from "../../lib/docs";
 interface AddTodoFormProps {
   partyId?: string | null;
   templateId: string;
-  choiceName: string;
+  choice: string;
   todoListContractId: string | null;
   onPendingChange?: (pending: { description: string; submittedAt: number } | null) => void;
   onSubmitSuccess?: () => void;
@@ -17,7 +17,7 @@ interface AddTodoFormProps {
 export const AddTodoForm = ({
   partyId,
   templateId,
-  choiceName,
+  choice,
   todoListContractId,
   onPendingChange,
   onSubmitSuccess,
@@ -56,7 +56,7 @@ export const AddTodoForm = ({
       await exerciseAsync({
         templateId,
         contractId: todoListContractId,
-        choiceName,
+        choice,
         choiceArgument: {
           description: trimmedDescription,
         },

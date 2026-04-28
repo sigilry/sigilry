@@ -12,12 +12,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { EventFormat, GetUpdatesRequest, TransactionFormat } from "@sigilry/canton-json-api";
 import { useCanton } from "../context";
+import { parseError } from "../types";
 import {
+  applyPrunedOffsetFloor,
   buildUpdatesFlatsRequestBody,
+  deriveRecentBeginExclusive,
+  isMaximumListElementsError,
+  parseLatestPrunedOffsetResponse,
   parseLedgerEndResponse,
   parseLedgerOffsetInput,
   type ParsedTransaction,
   parseUpdatesFlatsResponse,
+  type UpdatesFlatsRequestBody,
 } from "./ledgerApiContract";
 import type { CantonTemplateFilter } from "./ledgerFilters";
 import { buildFiltersByParty } from "./ledgerFilters";
@@ -111,6 +117,11 @@ function hasTransaction(entry: {
   return entry.transaction !== undefined;
 }
 
+function toErrorState(err: unknown): Error {
+  const parsed = parseError(err);
+  return Object.assign(new Error(parsed.message), parsed);
+}
+
 export function selectLatestOffset(
   entries: ReadonlyArray<Pick<TransactionUpdate, "offset">>,
 ): string | undefined {
@@ -176,21 +187,38 @@ export function useLedgerUpdates(options: UseLedgerUpdatesOptions = {}): UseLedg
 
   const queryEnabled = (enabled ?? isConnected) && !!partyId;
 
-  // Fetch current ledger end to initialize offset
-  const initializeOffset = useCallback(async (): Promise<string | undefined> => {
+  const readLatestPrunedOffset = useCallback(async (): Promise<string | undefined> => {
     try {
       const result = await request("ledgerApi", {
-        requestMethod: "GET",
-        resource: "/v2/state/ledger-end",
+        requestMethod: "get",
+        resource: "/v2/state/latest-pruned-offsets",
       });
-      if (result?.response) {
-        return parseLedgerEndResponse(result.response).offset;
-      }
+      return parseLatestPrunedOffsetResponse(result).participantPrunedUpToInclusive;
     } catch {
-      // Ignore errors during init
+      return undefined;
     }
-    return undefined;
   }, [request]);
+
+  const applyLatestPrunedOffsetFloor = useCallback(
+    async (beginExclusive: string): Promise<string> => {
+      const prunedOffset = await readLatestPrunedOffset();
+      if (prunedOffset === undefined) {
+        return beginExclusive;
+      }
+
+      return applyPrunedOffsetFloor({ beginExclusive }, prunedOffset).beginExclusive;
+    },
+    [readLatestPrunedOffset],
+  );
+
+  // Fetch current ledger end to initialize offset
+  const initializeOffset = useCallback(async (): Promise<string> => {
+    const result = await request("ledgerApi", {
+      requestMethod: "get",
+      resource: "/v2/state/ledger-end",
+    });
+    return applyLatestPrunedOffsetFloor(parseLedgerEndResponse(result).offset);
+  }, [request, applyLatestPrunedOffsetFloor]);
 
   // Poll for updates since last offset
   const pollUpdates = useCallback(async () => {
@@ -211,69 +239,97 @@ export function useLedgerUpdates(options: UseLedgerUpdatesOptions = {}): UseLedg
         includeTransactions: transactionFormat,
       };
 
-      const result = await request("ledgerApi", {
-        requestMethod: "POST",
-        resource: "/v2/updates/flats",
-        body: buildUpdatesFlatsRequestBody(currentOffset, updateFormat),
-      });
+      const requestUpdates = async (body: UpdatesFlatsRequestBody) => {
+        const result = await request("ledgerApi", {
+          requestMethod: "post",
+          resource: "/v2/updates/flats",
+          body,
+        });
+        return parseUpdatesFlatsResponse(result);
+      };
 
-      if (result?.response) {
-        const parsed = parseUpdatesFlatsResponse(result.response);
+      const body = buildUpdatesFlatsRequestBody(currentOffset, updateFormat);
+      let retryBeginExclusive: string | undefined;
+      let parsed: ReturnType<typeof parseUpdatesFlatsResponse>;
 
-        const newUpdates: TransactionUpdate[] = (parsed.update ?? [])
-          .filter(hasTransaction)
-          .map((u) => {
-            const tx = u.transaction;
-            const events: ContractEvent[] = tx.events.map((e) => {
-              if (e.kind === "created") {
-                return {
-                  type: "created",
-                  contractId: e.created.contractId,
-                  templateId: e.created.templateId,
-                  payload: e.created.createArgument ?? {},
-                  signatories: e.created.signatories,
-                  observers: e.created.observers,
-                };
-              }
+      try {
+        parsed = await requestUpdates(body);
+      } catch (err) {
+        if (!isMaximumListElementsError(err)) {
+          throw err;
+        }
 
+        const ledgerEndResult = await request("ledgerApi", {
+          requestMethod: "get",
+          resource: "/v2/state/ledger-end",
+        });
+        retryBeginExclusive = deriveRecentBeginExclusive(
+          body,
+          parseLedgerEndResponse(ledgerEndResult).offset,
+        );
+        parsed = await requestUpdates({
+          ...body,
+          beginExclusive: parseLedgerOffsetInput(retryBeginExclusive),
+        });
+      }
+
+      const newUpdates: TransactionUpdate[] = (parsed.update ?? [])
+        .filter(hasTransaction)
+        .map((u) => {
+          const tx = u.transaction;
+          const events: ContractEvent[] = tx.events.map((e) => {
+            if (e.kind === "created") {
               return {
-                type: "archived",
-                contractId: e.archived.contractId,
-                templateId: e.archived.templateId,
+                type: "created",
+                contractId: e.created.contractId,
+                templateId: e.created.templateId,
+                payload: e.created.createArgument ?? {},
+                signatories: e.created.signatories,
+                observers: e.created.observers,
               };
-            });
+            }
 
             return {
-              updateId: tx.updateId,
-              commandId: tx.commandId,
-              // Always keep offset as string to preserve precision
-              offset: tx.offset,
-              effectiveAt: tx.effectiveAt ?? "",
-              events,
+              type: "archived",
+              contractId: e.archived.contractId,
+              templateId: e.archived.templateId,
             };
           });
 
-        if (newUpdates.length > 0) {
-          const latestOffset = selectLatestOffset(newUpdates);
-          if (latestOffset !== undefined) {
-            setCurrentOffset(latestOffset);
-          }
+          return {
+            updateId: tx.updateId,
+            commandId: tx.commandId,
+            // Always keep offset as string to preserve precision
+            offset: tx.offset,
+            effectiveAt: tx.effectiveAt ?? "",
+            events,
+          };
+        });
 
-          // Add to history (capped)
-          setUpdates((prev) => {
-            const combined = [...prev, ...newUpdates];
-            return combined.slice(-maxHistory);
-          });
-
-          // Notify callback
-          onUpdateRef.current?.(newUpdates);
+      if (newUpdates.length > 0) {
+        const latestOffset = selectLatestOffset(newUpdates);
+        if (latestOffset !== undefined) {
+          setCurrentOffset(latestOffset);
         }
 
-        setError(null);
-        setLastPollTime(Date.now());
+        // Add to history (capped)
+        setUpdates((prev) => {
+          const combined = [...prev, ...newUpdates];
+          return combined.slice(-maxHistory);
+        });
+
+        // Notify callback
+        onUpdateRef.current?.(newUpdates);
+      } else if (retryBeginExclusive !== undefined) {
+        // A successful retry from a recent window should not leave the hook stuck on the
+        // oversized default offset that triggered the retry.
+        setCurrentOffset(retryBeginExclusive);
       }
+
+      setError(null);
+      setLastPollTime(Date.now());
     } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
+      setError(toErrorState(err));
     } finally {
       setIsPolling(false);
     }
@@ -286,30 +342,31 @@ export function useLedgerUpdates(options: UseLedgerUpdatesOptions = {}): UseLedg
       return;
     }
 
-    // If initial offset is provided, use it directly
-    if (providedInitialOffset !== undefined) {
-      try {
-        setCurrentOffset(parseLedgerOffsetInput(providedInitialOffset));
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error(String(err)));
-      }
-      setLastPollTime(Date.now());
-      setIsLoading(false);
-      return;
-    }
-
     let cancelled = false;
 
     const init = async () => {
       setIsLoading(true);
-      const offset = await initializeOffset();
-      if (!cancelled && offset !== undefined) {
-        setCurrentOffset(offset);
-        setLastPollTime(Date.now());
-      }
-      if (!cancelled) {
-        setIsLoading(false);
+      setError(null);
+      setCurrentOffset(undefined);
+      setLastPollTime(undefined);
+
+      try {
+        const offset =
+          providedInitialOffset !== undefined
+            ? await applyLatestPrunedOffsetFloor(parseLedgerOffsetInput(providedInitialOffset))
+            : await initializeOffset();
+        if (!cancelled) {
+          setCurrentOffset(offset);
+          setLastPollTime(Date.now());
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(toErrorState(err));
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     };
 
@@ -318,7 +375,7 @@ export function useLedgerUpdates(options: UseLedgerUpdatesOptions = {}): UseLedg
     return () => {
       cancelled = true;
     };
-  }, [queryEnabled, initializeOffset, providedInitialOffset]);
+  }, [queryEnabled, initializeOffset, providedInitialOffset, applyLatestPrunedOffsetFloor]);
 
   // Polling interval
   useEffect(() => {

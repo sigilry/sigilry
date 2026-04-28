@@ -30,6 +30,20 @@ export default defineConfig({
 });
 ```
 
+### Using Splice DARs
+
+For Canton Network / Splice development, use [`@sigilry/splice-dars`](./splice-dars/) instead of managing DAR files manually:
+
+```ts
+import { defineConfig } from "@sigilry/cli/config";
+import { spliceDars } from "@sigilry/splice-dars";
+
+export default defineConfig({
+  dars: [spliceDars.amulet, spliceDars.apiTokenHolding],
+  output: "./src/generated",
+});
+```
+
 ## Generate types
 
 ```bash

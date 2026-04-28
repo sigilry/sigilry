@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import {
   CommandIdSchema,
-  KernelInfoSchema,
+  ConnectResultSchema,
+  CreateCommandSchema,
+  ExerciseCommandSchema,
+  JsCommandsSchema,
+  JsPrepareSubmissionRequestSchema,
+  ProviderSchema,
   StatusEventSchema,
   TxChangedExecutedPayloadSchema,
   WalletSchema,
@@ -68,12 +73,18 @@ describe("Generated Schemas", () => {
   describe("StatusEventSchema", () => {
     test("validates connected status with nested network and session", () => {
       const status = {
-        kernel: { id: "send-wallet", clientType: "browser" as const },
-        isConnected: true,
-        isNetworkConnected: true,
+        provider: {
+          id: "send-wallet",
+          version: "1.1.0-next.0",
+          providerType: "browser" as const,
+        },
+        connection: {
+          isConnected: true,
+          isNetworkConnected: true,
+        },
         network: {
           networkId: "canton:testnet",
-          ledgerApi: { baseUrl: "https://api.example.com" },
+          ledgerApi: "https://api.example.com",
         },
         session: {
           accessToken: "jwt-token-here",
@@ -85,11 +96,17 @@ describe("Generated Schemas", () => {
 
     test("validates connected status with network only (no session)", () => {
       const status = {
-        kernel: { id: "send-wallet", clientType: "browser" as const },
-        isConnected: false,
-        isNetworkConnected: true,
+        provider: {
+          id: "send-wallet",
+          providerType: "browser" as const,
+        },
+        connection: {
+          isConnected: false,
+          isNetworkConnected: true,
+        },
         network: {
           networkId: "canton:testnet",
+          accessToken: "jwt-token-here",
         },
       };
       expect(StatusEventSchema.parse(status)).toEqual(status);
@@ -97,40 +114,66 @@ describe("Generated Schemas", () => {
 
     test("validates disconnected status with reason", () => {
       const status = {
-        kernel: { id: "send-wallet", clientType: "browser" as const },
-        isConnected: false,
-        isNetworkConnected: false,
-        networkReason: "User disconnected",
+        provider: {
+          id: "send-wallet",
+          providerType: "browser" as const,
+        },
+        connection: {
+          isConnected: false,
+          isNetworkConnected: false,
+          networkReason: "User disconnected",
+        },
       };
       expect(StatusEventSchema.parse(status)).toEqual(status);
     });
   });
 
-  describe("KernelInfoSchema", () => {
-    test("validates minimal kernel info", () => {
-      const kernel = {
-        id: "send-wallet",
-        clientType: "browser" as const,
+  describe("ConnectResultSchema", () => {
+    test("validates minimal connected result", () => {
+      const result = {
+        isConnected: true,
+        isNetworkConnected: true,
       };
-      expect(KernelInfoSchema.parse(kernel)).toEqual(kernel);
+      expect(ConnectResultSchema.parse(result)).toEqual(result);
     });
 
-    test("validates kernel info with URL", () => {
-      const kernel = {
+    test("validates disconnected result with reasons", () => {
+      const result = {
+        isConnected: false,
+        reason: "No active session",
+        isNetworkConnected: false,
+        networkReason: "Wallet offline",
+      };
+      expect(ConnectResultSchema.parse(result)).toEqual(result);
+    });
+  });
+
+  describe("ProviderSchema", () => {
+    test("validates minimal provider info", () => {
+      const provider = {
         id: "send-wallet",
-        clientType: "remote" as const,
+        providerType: "browser" as const,
+      };
+      expect(ProviderSchema.parse(provider)).toEqual(provider);
+    });
+
+    test("validates provider info with URL", () => {
+      const provider = {
+        id: "send-wallet",
+        version: "1.1.0-next.0",
+        providerType: "remote" as const,
         url: "https://wallet.example.com",
         userUrl: "https://wallet.example.com/approve",
       };
-      expect(KernelInfoSchema.parse(kernel)).toEqual(kernel);
+      expect(ProviderSchema.parse(provider)).toEqual(provider);
     });
 
-    test("rejects invalid clientType", () => {
-      const kernel = {
+    test("rejects invalid providerType", () => {
+      const provider = {
         id: "send-wallet",
-        clientType: "invalid_type",
+        providerType: "invalid_type",
       };
-      expect(() => KernelInfoSchema.parse(kernel)).toThrow();
+      expect(() => ProviderSchema.parse(provider)).toThrow();
     });
   });
 
@@ -160,6 +203,127 @@ describe("Generated Schemas", () => {
 
     test("rejects non-string", () => {
       expect(() => CommandIdSchema.parse(123)).toThrow();
+    });
+  });
+
+  describe("JsCommandsSchema", () => {
+    test("accepts a non-empty array of CIP-0103 command atoms", () => {
+      const commands = [
+        CreateCommandSchema.parse({
+          CreateCommand: {
+            templateId: "Ping:Main:Ping",
+            createArguments: { sender: "alice" },
+          },
+        }),
+      ];
+
+      expect(JsCommandsSchema.parse(commands)).toEqual(commands);
+    });
+
+    test("rejects legacy CreateCommand payload fields", () => {
+      expect(() =>
+        CreateCommandSchema.parse({
+          CreateCommand: {
+            templateId: "Ping:Main:Ping",
+            payload: { sender: "alice" },
+          },
+        }),
+      ).toThrow();
+    });
+
+    test("rejects missing CreateCommand required fields", () => {
+      expect(() =>
+        CreateCommandSchema.parse({
+          CreateCommand: {
+            createArguments: { sender: "alice" },
+          },
+        }),
+      ).toThrow();
+    });
+
+    test("rejects an object-shaped commands payload", () => {
+      expect(() => JsCommandsSchema.parse({ CreateCommand: {} })).toThrow();
+    });
+
+    test("rejects an empty commands array", () => {
+      expect(() => JsCommandsSchema.parse([])).toThrow();
+    });
+  });
+
+  describe("JsPrepareSubmissionRequestSchema", () => {
+    test("accepts command arrays for prepare submission requests", () => {
+      const request = {
+        commands: [
+          ExerciseCommandSchema.parse({
+            ExerciseCommand: {
+              templateId: "Ping:Main:Ping",
+              contractId: "00deadbeef",
+              choice: "Archive",
+              choiceArgument: {},
+            },
+          }),
+        ],
+      };
+
+      expect(JsPrepareSubmissionRequestSchema.parse(request)).toEqual(request);
+    });
+
+    test("rejects legacy ExerciseCommand argument field", () => {
+      expect(() =>
+        JsPrepareSubmissionRequestSchema.parse({
+          commands: [
+            {
+              ExerciseCommand: {
+                templateId: "Ping:Main:Ping",
+                contractId: "00deadbeef",
+                choice: "Archive",
+                argument: {},
+              },
+            },
+          ],
+        }),
+      ).toThrow();
+    });
+
+    test("rejects legacy ExerciseCommand choiceName field", () => {
+      expect(() =>
+        JsPrepareSubmissionRequestSchema.parse({
+          commands: [
+            {
+              ExerciseCommand: {
+                templateId: "Ping:Main:Ping",
+                contractId: "00deadbeef",
+                choiceName: "Archive",
+                choiceArgument: {},
+              },
+            },
+          ],
+        }),
+      ).toThrow();
+    });
+
+    test("rejects ExerciseCommand missing required fields", () => {
+      expect(() =>
+        JsPrepareSubmissionRequestSchema.parse({
+          commands: [
+            {
+              ExerciseCommand: {
+                templateId: "Ping:Main:Ping",
+                choice: "Archive",
+                choiceArgument: {},
+              },
+            },
+          ],
+        }),
+      ).toThrow();
+    });
+
+    test("rejects non-array commands in prepare submission requests", () => {
+      expect(() =>
+        JsPrepareSubmissionRequestSchema.parse({
+          commands: { ExerciseCommand: {} },
+        }),
+      ).toThrow();
     });
   });
 });

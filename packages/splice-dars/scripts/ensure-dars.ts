@@ -4,16 +4,13 @@ import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { allSpliceDars } from "../src/index.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const packageRoot = join(__dirname, "..");
-const darsDir = join(packageRoot, "dars");
-const requiredDars = ["splice-amulet-current.dar", "splice-wallet-payments-current.dar"] as const;
 
 function missingDarPaths(): string[] {
-  return requiredDars
-    .filter((dar) => !existsSync(join(darsDir, dar)))
-    .map((dar) => join(darsDir, dar));
+  return allSpliceDars.filter((darPath) => !existsSync(darPath));
 }
 
 function log(message: string) {

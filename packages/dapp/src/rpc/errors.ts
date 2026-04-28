@@ -1,8 +1,10 @@
 /**
- * JSON-RPC 2.0 error codes and utilities.
+ * JSON-RPC 2.0 error codes and utilities for the CIP-103 dApp API.
  *
  * Standard error codes: https://www.jsonrpc.org/specification#error_object
- * Canton dApp API error codes align with EIP-1193 and EIP-1474 per CIP draft.
+ * CIP-103 normatively adopts the EIP-1193 provider error allocations (4001/4100/4200/4900/4901)
+ * and the EIP-1474 server error range (-32000..-32099) for the Canton dApp API.
+ * See: https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md
  */
 
 /** Standard JSON-RPC 2.0 error codes */
@@ -18,7 +20,7 @@ export const RpcErrorCode = {
   /** Internal JSON-RPC error */
   INTERNAL_ERROR: -32603,
 
-  // EIP-1193 provider errors
+  // CIP-103 provider errors (inherited from EIP-1193)
   /** User rejected the request */
   USER_REJECTED: 4001,
   /** The requested method and/or account has not been authorized by the user */
@@ -30,7 +32,7 @@ export const RpcErrorCode = {
   /** The provider is not connected to the requested chain */
   CHAIN_DISCONNECTED: 4901,
 
-  // EIP-1474 server errors (-32000 to -32099)
+  // CIP-103 server errors (inherited from EIP-1474, -32000 to -32099)
   /** Missing or invalid parameters */
   INVALID_INPUT: -32000,
   /** Requested resource not found */

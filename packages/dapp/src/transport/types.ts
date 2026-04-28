@@ -41,12 +41,19 @@ export interface TransportOptions {
   timeout?: number;
   /** Origin to accept messages from (for postMessage) */
   targetOrigin?: string;
+  /** Optional routing key for browser-extension messaging */
+  target?: string;
 }
 
 /** Default transport options */
 // TODO: Before production, implement origin validation to restrict targetOrigin
 // to trusted domains (e.g., https only). Current '*' allows any origin.
-export const DEFAULT_TRANSPORT_OPTIONS: Required<TransportOptions> = {
+export const DEFAULT_TRANSPORT_OPTIONS: Required<
+  Pick<TransportOptions, "timeout" | "targetOrigin">
+> & {
+  target: string | undefined;
+} = {
   timeout: 30000, // 30 seconds
   targetOrigin: "*",
+  target: undefined,
 };

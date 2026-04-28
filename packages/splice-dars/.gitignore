@@ -1,2 +1,5 @@
 # Extracted DAR files (dev artifacts, extracted on install)
 dars/
+
+# Build output
+dist/

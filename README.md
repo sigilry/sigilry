@@ -4,8 +4,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![npm @sigilry/dapp](https://img.shields.io/npm/v/@sigilry/dapp.svg?label=@sigilry/dapp)](https://www.npmjs.com/package/@sigilry/dapp)
 [![npm @sigilry/react](https://img.shields.io/npm/v/@sigilry/react.svg?label=@sigilry/react)](https://www.npmjs.com/package/@sigilry/react)
+[![npm @sigilry/splice-dars](https://img.shields.io/npm/v/@sigilry/splice-dars.svg?label=@sigilry/splice-dars)](https://www.npmjs.com/package/@sigilry/splice-dars)
 
-Chain/transport-agnostic dApp infrastructure.
+[CIP-103](https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md)-compliant dApp connectivity for Canton Network. Built and maintained by [Send](https://send.it); used in production by Send's dApps.
 
 ## Packages
 
@@ -15,6 +16,7 @@ Chain/transport-agnostic dApp infrastructure.
 | [@sigilry/react](./packages/react)                     | React context, hooks, connection state                  |
 | [@sigilry/cli](./packages/cli)                         | OpenRPC to TypeScript codegen                           |
 | [@sigilry/canton-json-api](./packages/canton-json-api) | Generated Canton JSON API v2 types and Zod schemas      |
+| [@sigilry/splice-dars](./packages/splice-dars)         | Vendored Splice DAR files with typed path exports       |
 
 ## Specifications
 
@@ -35,17 +37,17 @@ ChainHandler (chain-specific logic)    <- consumers implement
 
 ## Installation
 
-```bash
-npm install @sigilry/dapp
-# or
-yarn add @sigilry/dapp
-```
-
-For React applications:
+`@sigilry/dapp` and `@sigilry/react` are on the **`2.0.0-next.N` pre-release line** while the CIP-0103 RPC contract settles. Install with an explicit version or the `next` dist-tag; the `latest` tag still points at the older `1.x` line.
 
 ```bash
-npm install @sigilry/dapp @sigilry/react
+# Pin to a specific pre-release (recommended)
+yarn add @sigilry/dapp@2.0.0-next.3 @sigilry/react@2.0.0-next.3
+
+# Or track the rolling next tag (expect breaks between bumps)
+yarn add @sigilry/dapp@next @sigilry/react@next
 ```
+
+See [`docs/migrations`](./docs/src/content/docs/migrations/) for the full release cadence policy and per-version migration guides.
 
 ## Development
 
@@ -100,6 +102,10 @@ yarn --cwd docs dev
 # Network preview (uses DOCS_ALLOWED_HOSTS, defaults to localhost)
 yarn --cwd docs preview:network
 ```
+
+## Maintainers
+
+Sigilry is built and maintained by [Send](https://send.it). Issues and contributions are accepted on this public mirror; changes flow through the private canonical repository via Copybara.
 
 ## License
 

@@ -12,6 +12,7 @@
 ## Scope
 
 - Keep OpenRPC-derived schemas in `src/generated/schemas.ts` as the typed source of truth for dApp-extension RPC.
+- Keep `LedgerApiResult` widened to object-or-array JSON until `openrpc-dapp-api.json#/components/schemas/LedgerApiResult` is fixed upstream.
 - Provide typed RPC method contracts (`RpcMethods`) for callers and implementers.
 - Keep transports decoupled from chain/business logic.
 

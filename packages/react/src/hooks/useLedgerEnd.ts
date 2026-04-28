@@ -42,8 +42,8 @@ export interface UseLedgerEndResult {
   refetch: () => void;
 }
 
-export function parseLedgerEndResponse(response: string): LedgerEndResponse {
-  return parseLedgerEndResponseContract(response);
+export function parseLedgerEndResponse(payload: unknown): LedgerEndResponse {
+  return parseLedgerEndResponseContract(payload);
 }
 
 /**
@@ -73,15 +73,11 @@ export function useLedgerEnd(options: UseLedgerEndOptions = {}): UseLedgerEndRes
     queryKey: ["canton", "ledgerEnd"],
     queryFn: async (): Promise<LedgerEndResponse> => {
       const result = await request("ledgerApi", {
-        requestMethod: "GET",
+        requestMethod: "get",
         resource: "/v2/state/ledger-end",
       });
 
-      // Parse the response JSON string
-      if (result?.response) {
-        return parseLedgerEndResponse(result.response);
-      }
-      throw new Error("Invalid ledger end response");
+      return parseLedgerEndResponse(result);
     },
     enabled: queryEnabled,
     refetchInterval: queryEnabled ? refetchInterval : false,

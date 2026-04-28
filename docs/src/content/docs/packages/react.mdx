@@ -74,7 +74,7 @@ export function LedgerEndButton() {
 
   const fetchLedgerEnd = async () => {
     await requestAsync({
-      requestMethod: "GET",
+      requestMethod: "get",
       resource: "/v2/state/ledger-end",
     });
   };

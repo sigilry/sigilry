@@ -2,8 +2,9 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { allSpliceDars } from "../src/index.ts";
 
 type NpmPackOutput = {
   filename: string;
@@ -11,10 +12,7 @@ type NpmPackOutput = {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const packageRoot = join(__dirname, "..");
-const requiredArchivePaths = [
-  "package/dars/splice-amulet-current.dar",
-  "package/dars/splice-wallet-payments-current.dar",
-] as const;
+const requiredArchivePaths = allSpliceDars.map((darPath) => `package/dars/${basename(darPath)}`);
 
 function parseNpmPackOutput(output: string): NpmPackOutput {
   const parsed = JSON.parse(output) as NpmPackOutput[];

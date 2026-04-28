@@ -46,7 +46,7 @@ async function checkStatus() {
   }
 
   const status = await window.canton.request({ method: "status" });
-  console.log("Connected:", status.isConnected);
+  console.log("Connected:", status.connection.isConnected);
   return status;
 }
 

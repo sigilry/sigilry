@@ -30,7 +30,7 @@ function generateId(): string {
  * Used by the injected provider to communicate with the content script.
  */
 export class WindowTransport implements BidirectionalTransport {
-  private readonly options: Required<TransportOptions>;
+  private readonly options: typeof DEFAULT_TRANSPORT_OPTIONS;
   private readonly win: Window;
 
   constructor(win: Window, options: TransportOptions = {}) {
@@ -102,6 +102,7 @@ export class WindowTransport implements BidirectionalTransport {
         {
           type: WalletEvent.SPLICE_WALLET_REQUEST,
           request,
+          ...(this.options.target ? { target: this.options.target } : {}),
         },
         this.options.targetOrigin,
       );

@@ -1,0 +1,104 @@
+---
+title: "@sigilry/splice-dars"
+description: Vendored Splice DAR files with typed path exports for Canton Network development.
+---
+
+`@sigilry/splice-dars` provides vendored [Splice](https://github.com/hyperledger-labs/splice) DAR files with typed path exports. Use it with `@sigilry/cli` to generate TypeScript types from the official Splice contracts without manually downloading release artifacts.
+
+## What are DARs?
+
+DAR (DAML Archive) files are compiled packages of DAML smart contracts. The Splice network publishes DARs for its token standard, amulet contracts, and wallet APIs. You need these DARs to generate typed TypeScript bindings for interacting with Splice contracts on Canton Network.
+
+## Install
+
+```bash
+yarn add @sigilry/splice-dars
+```
+
+## Usage
+
+### Get DAR paths for codegen
+
+The primary use case is feeding DAR paths to `@sigilry/cli` for TypeScript code generation:
+
+```ts title="sigilry.config.ts"
+import { defineConfig } from "@sigilry/cli/config";
+import { spliceDars } from "@sigilry/splice-dars";
+
+export default defineConfig({
+  dars: [spliceDars.amulet, spliceDars.apiTokenHolding, spliceDars.apiTokenTransferInstruction],
+  output: "./src/generated",
+});
+```
+
+Then generate types:
+
+```bash
+sigilry codegen
+```
+
+### Use all DARs
+
+```ts
+import { allSpliceDars } from "@sigilry/splice-dars";
+
+// Pass every Splice DAR to codegen
+export default defineConfig({
+  dars: [...allSpliceDars],
+  output: "./src/generated",
+});
+```
+
+### Check the Splice version
+
+```ts
+import { SPLICE_VERSION } from "@sigilry/splice-dars";
+
+console.log(SPLICE_VERSION); // "0.5.14"
+```
+
+## Available DARs
+
+| Export Key                      | Contract Package                                         |
+| ------------------------------- | -------------------------------------------------------- |
+| `amulet`                        | Core Amulet contracts (AmuletRules, TransferPreapproval) |
+| `util`                          | Shared utility modules                                   |
+| `apiFeaturedApp`                | Featured app API                                         |
+| `apiTokenAllocation`            | Token allocation                                         |
+| `apiTokenAllocationInstruction` | Token allocation instructions                            |
+| `apiTokenAllocationRequest`     | Token allocation requests                                |
+| `apiTokenBurnMint`              | Token burn and mint                                      |
+| `apiTokenHolding`               | Token holdings                                           |
+| `apiTokenMetadata`              | Token metadata                                           |
+| `apiTokenTransferInstruction`   | Token transfer instructions                              |
+| `utilBatchedMarkers`            | Batched marker utilities                                 |
+| `utilTokenStandardWallet`       | Token standard wallet utilities                          |
+
+## Exports
+
+| Export           | Type                                | Description                     |
+| ---------------- | ----------------------------------- | ------------------------------- |
+| `spliceDars`     | `Record<string, string>` (readonly) | Named DAR file paths            |
+| `allSpliceDars`  | `readonly string[]`                 | All DAR paths as an array       |
+| `SPLICE_VERSION` | `string` literal                    | Upstream Splice release version |
+
+## Versioning
+
+This package follows standard semver via changesets. The `SPLICE_VERSION` export tells you which Splice release the bundled DARs came from — the npm version and Splice version are independent.
+
+| Package Version | Splice Version |
+| --------------- | -------------- |
+| 0.3.x           | 0.5.4          |
+| 0.4.0           | 0.5.14         |
+
+## Typical workflow
+
+1. Install `@sigilry/splice-dars` and `@sigilry/cli`
+2. Reference the DAR paths you need in `sigilry.config.ts`
+3. Run `sigilry codegen` to generate TypeScript types
+4. Import generated types in your dApp code
+5. Use `@sigilry/dapp` or `@sigilry/react` to interact with the Canton ledger
+
+## Source and licensing
+
+DAR artifacts are extracted from the public [Splice release](https://github.com/digital-asset/decentralized-canton-sync/releases) with SHA256 verification. Bundled DARs are redistributed under Apache License 2.0; package wrapper code is MIT.

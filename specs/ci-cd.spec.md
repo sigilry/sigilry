@@ -22,7 +22,7 @@ GitHub Actions CI/CD pipeline for the sigilry monorepo. Implements continuous in
 - `@sigilry/dapp` - Core dApp ↔ extension RPC types/transports
 - `@sigilry/react` - React hooks and context
 - `@sigilry/canton-json-api` - Generated Canton JSON API v2 types + schemas
-- `@sigilry/splice-dars` - Private, DAR files for testing
+- `@sigilry/splice-dars` - Vendored Splice DAR files with typed path exports
 
 ## Workflows
 
@@ -73,15 +73,16 @@ Both jobs run equivalent checks in Nix devShell:
 
 **splice-dars Handling**:
 
-- DAR files are pre-extracted and committed to repository
+- DAR files are extracted during `prepack` (not committed to git)
+- Extraction downloads from the upstream Splice GitHub release with SHA256 verification
 - No Docker required in CI
-- If DARs need updating, run `yarn workspace @sigilry/splice-dars extract` locally with Docker
+- If DARs need updating, run `yarn workspace @sigilry/splice-dars extract` locally
 
-### 2. Release Workflow (Future)
+### 2. Release Workflow
 
 **File**: `.github/workflows/release.yml`
 
-**Status**: Documented for future implementation. All packages currently private.
+**Status**: Active. Publishes to npm on merge to main when changesets are present.
 
 **Trigger**: Merge of "Version Packages" PR created by changesets bot
 
@@ -117,15 +118,13 @@ jobs:
 - Safe to re-run entire release workflow
 - Already-published packages are skipped automatically
 
-**Packages to Publish** (when enabled):
+**Packages to Publish**:
 
 - `@sigilry/cli`
 - `@sigilry/dapp`
 - `@sigilry/react`
-
-**Excluded**:
-
-- `@sigilry/splice-dars` (private: true)
+- `@sigilry/canton-json-api`
+- `@sigilry/splice-dars`
 
 ### 3. Pre-release Workflow (Future)
 
@@ -153,9 +152,9 @@ jobs:
 
 ### Secrets
 
-| Secret      | Scope      | Purpose                    |
-| ----------- | ---------- | -------------------------- |
-| `NPM_TOKEN` | Repository | npm publish authentication |
+| Secret           | Scope      | Purpose                                            |
+| ---------------- | ---------- | -------------------------------------------------- |
+| `NPM_AUTH_TOKEN` | Repository | npm publish authentication (via `NODE_AUTH_TOKEN`) |
 
 **Setup**: Generate granular access token on npmjs.com with publish scope for `@sigilry/*`
 
@@ -184,30 +183,30 @@ npm packages published with `--provenance` flag:
 - [ ] Cache provides meaningful speedup on subsequent runs
 - [ ] Workflow completes in < 5 minutes
 
-### Release (when implemented)
+### Release
 
-- [ ] Changesets bot creates Version Packages PR
-- [ ] Merge triggers publish to npm
+- [x] Changesets bot creates Version Packages PR
+- [x] Merge triggers publish to npm
 - [ ] Published packages have provenance badge
 - [ ] Git tags created for releases
 
 ## Implementation Order
 
-1. **Phase 1 (Now)**: CI workflow + Dependabot
-2. **Phase 2 (When npm org ready)**: Release workflow
+1. **Phase 1**: CI workflow + Dependabot
+2. **Phase 2**: Release workflow
 3. **Phase 3 (Optional)**: Pre-release workflow
 
 ## Decisions Log
 
-| Decision                        | Rationale                                               | Date       |
-| ------------------------------- | ------------------------------------------------------- | ---------- |
-| Node 22 only                    | Current LTS, matches engines >= 18.19.0, simpler matrix | 2026-01-02 |
-| Ubuntu only                     | Library code is OS-agnostic, faster/cheaper             | 2026-01-02 |
-| Local turbo cache               | Avoids Vercel account dependency                        | 2026-01-02 |
-| Changesets bot PR               | Standard flow, maintainer controls release timing       | 2026-01-02 |
-| Provenance enabled              | Adds trust, minimal overhead                            | 2026-01-02 |
-| CI pass only (no approval)      | Small team, fast iteration                              | 2026-01-02 |
-| Cache extracted DARs            | Avoids Docker in CI, DARs rarely change                 | 2026-01-02 |
-| Repository secret for NPM_TOKEN | Simple, single repo                                     | 2026-01-02 |
-| Dependabot security only        | Minimal noise, manual version updates                   | 2026-01-02 |
-| Defer publishing                | npm org setup pending                                   | 2026-01-02 |
+| Decision                             | Rationale                                               | Date       |
+| ------------------------------------ | ------------------------------------------------------- | ---------- |
+| Node 22 only                         | Current LTS, matches engines >= 18.19.0, simpler matrix | 2026-01-02 |
+| Ubuntu only                          | Library code is OS-agnostic, faster/cheaper             | 2026-01-02 |
+| Local turbo cache                    | Avoids Vercel account dependency                        | 2026-01-02 |
+| Changesets bot PR                    | Standard flow, maintainer controls release timing       | 2026-01-02 |
+| Provenance enabled                   | Adds trust, minimal overhead                            | 2026-01-02 |
+| CI pass only (no approval)           | Small team, fast iteration                              | 2026-01-02 |
+| Cache extracted DARs                 | Avoids Docker in CI, DARs rarely change                 | 2026-01-02 |
+| Repository secret for NPM_AUTH_TOKEN | Simple, single repo                                     | 2026-01-02 |
+| Dependabot security only             | Minimal noise, manual version updates                   | 2026-01-02 |
+| Defer publishing                     | npm org setup pending                                   | 2026-01-02 |

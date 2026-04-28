@@ -3,7 +3,9 @@ title: Sigilry
 description: Chain-agnostic dApp infrastructure for wallet connections.
 ---
 
-Sigilry is a chain-agnostic dApp infrastructure library that standardizes how dApps talk to wallet extensions. It provides a typed JSON-RPC protocol, validation schemas, and React hooks for fast integration.
+Sigilry is a [CIP-103](https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md) compliant dApp connectivity library for Canton Network. It implements the CIP-103 dApp API as a typed JSON-RPC client/server pair, ships generated Zod schemas for runtime validation, and exposes React Query hooks for fast integration.
+
+Sigilry is built and maintained by [Send](https://send.it) and used in production by Send's Canton Network dApps.
 
 ## Packages
 
@@ -36,9 +38,11 @@ Choose your starting path:
 
 ## SDK Flow
 
-The provider injected at `window.canton` follows an EIP-1193 style pattern. Requests use typed, canonical
-method names from the OpenRPC schema, methods with void params omit the `params` field, and the provider
-emits `accountsChanged` and `txChanged` events to signal wallet and ledger state changes. See the
+The wallet extension injects a CIP-103 provider at `window.canton`. The provider object follows the
+EIP-1193 shape that CIP-103 itself specifies (`request` / `on` / `removeListener`), routes calls through
+typed JSON-RPC method names from the CIP-103 OpenRPC schema, and emits `accountsChanged` and `txChanged`
+to signal wallet and ledger state changes. Methods with void params omit the `params` field. See
+[CIP-103 Conformance](concepts/cip-103-conformance/) for the per-method conformance table, and the
 [@sigilry/dapp](packages/dapp/) and [@sigilry/react](packages/react/) pages for the full contract.
 
 ## Quick start
@@ -59,7 +63,7 @@ hood. See the [@sigilry/cli](packages/cli/) page for the full configuration refe
 ```ts
 async function connect() {
   const status = await window.canton.request({ method: "status" });
-  if (!status.isConnected) {
+  if (!status.connection.isConnected) {
     await window.canton.request({ method: "connect" });
   }
 
@@ -79,7 +83,7 @@ offset and fetch active contracts.
 await window.canton.request({
   method: "ledgerApi",
   params: {
-    requestMethod: "GET",
+    requestMethod: "get",
     resource: "/v2/state/ledger-end",
   },
 });
@@ -89,8 +93,8 @@ await window.canton.request({
 
 ```
 dApp UI
-  -> window.canton (EIP-1193 style provider)
-  -> JSON-RPC (OpenRPC + Zod validation)
+  -> window.canton (CIP-103 provider; EIP-1193 object shape)
+  -> JSON-RPC (CIP-103 OpenRPC schema + Zod validation)
   -> WindowTransport (postMessage)
   -> Wallet extension (RPC server)
   -> Canton Ledger API / DAML
@@ -98,6 +102,8 @@ dApp UI
 
 ## For AI agents
 
+- Sigilry is a [CIP-103](https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md)-compliant dApp connectivity library for Canton Network.
 - A concise integration summary is available at `llms.txt`.
-- All examples are copy-paste ready and include explicit method names.
+- All examples are copy-paste ready and include explicit CIP-103 method names.
+- See [CIP-103 Conformance](concepts/cip-103-conformance/) for the per-method conformance table.
 - Use the package pages for complete API coverage.

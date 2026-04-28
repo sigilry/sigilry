@@ -7,12 +7,21 @@
 import { type UseMutationResult, useMutation } from "@tanstack/react-query";
 import { useCanton } from "../context";
 import type { ParsedError } from "../types";
+import { parseError } from "../types";
+import type { ConnectResult } from "@sigilry/dapp/schemas";
+
+function isParsedError(error: unknown): error is ParsedError {
+  if (typeof error !== "object" || error === null) return false;
+
+  const candidate = error as Partial<ParsedError>;
+  return typeof candidate.message === "string" && typeof candidate.action === "object";
+}
 
 export interface UseConnectResult {
   /** Connect to the wallet */
   connect: () => void;
   /** Connect async with promise return */
-  connectAsync: () => Promise<void>;
+  connectAsync: () => Promise<ConnectResult>;
   /** Whether a connection is in progress */
   isPending: boolean;
   /** Whether the last connect attempt failed */
@@ -42,8 +51,14 @@ export interface UseConnectResult {
 export function useConnect(): UseConnectResult {
   const { connect: contextConnect } = useCanton();
 
-  const mutation: UseMutationResult<void, Error, void> = useMutation({
-    mutationFn: contextConnect,
+  const mutation: UseMutationResult<ConnectResult, ParsedError, void> = useMutation({
+    mutationFn: async (): Promise<ConnectResult> => {
+      try {
+        return await contextConnect();
+      } catch (error) {
+        throw isParsedError(error) ? error : parseError(error);
+      }
+    },
   });
 
   return {
@@ -51,14 +66,7 @@ export function useConnect(): UseConnectResult {
     connectAsync: () => mutation.mutateAsync(),
     isPending: mutation.isPending,
     isError: mutation.isError,
-    error: mutation.error
-      ? {
-          message: mutation.error.message,
-          code: "INTERNAL_ERROR",
-          action: { type: "retry" as const },
-          raw: mutation.error,
-        }
-      : null,
+    error: mutation.error ?? null,
     reset: mutation.reset,
   };
 }

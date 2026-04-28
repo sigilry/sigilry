@@ -42,6 +42,10 @@ examples/*/src/generated/
 .claude/**.local.json
 *.local.*
 
+# rl loop scratch
+.rl/
+.rl.*/
+
 # macOS
 .DS_Store
 

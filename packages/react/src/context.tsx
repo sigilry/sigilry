@@ -5,6 +5,7 @@
  */
 
 import type React from "react";
+import { WalletSchema } from "@sigilry/dapp/schemas";
 import type { RpcMethods } from "@sigilry/dapp/schemas";
 import type { ReactNode } from "react";
 import {
@@ -23,6 +24,17 @@ type RpcMethodName = keyof RpcMethods;
 type RpcParams<M extends RpcMethodName> = RpcMethods[M]["params"];
 type RpcResult<M extends RpcMethodName> = RpcMethods[M]["result"];
 type OptionalParams<M extends RpcMethodName> = RpcParams<M> extends void ? [] : [RpcParams<M>];
+type RpcRequestFn = <M extends RpcMethodName>(
+  method: M,
+  ...params: OptionalParams<M>
+) => Promise<RpcResult<M>>;
+type BootstrapInitResult = { source: "event"; rawAccounts: unknown[] } | { source: "timeout" };
+type ConnectResultWithAccounts = RpcResult<"connect"> & { accounts?: unknown };
+
+const DEFAULT_INIT_GRACE_MS = 150;
+const DEFAULT_NETWORK_ID = "canton:localnet";
+const STATUS_SETTLE_TIMEOUT_MS = 5000;
+const STATUS_TIMEOUT_SENTINEL = Symbol("statusSettleTimeout");
 
 /**
  * Transform raw wallet data from listAccounts into Account type
@@ -30,28 +42,75 @@ type OptionalParams<M extends RpcMethodName> = RpcParams<M> extends void ? [] : 
 function toAccount(wallet: Record<string, unknown>): Account {
   const partyId = String(wallet.partyId ?? "");
   const { hint, namespace } = parsePartyId(partyId);
-  const rawStatus = String(wallet.status ?? "");
-  const status: Account["status"] =
-    rawStatus === "initialized" || rawStatus === "pending" ? "initialized" : "allocated";
-  const externalTxId = typeof wallet.externalTxId === "string" ? wallet.externalTxId : undefined;
-  const topologyTransactions =
-    typeof wallet.topologyTransactions === "string" ? wallet.topologyTransactions : undefined;
-  const disabled = typeof wallet.disabled === "boolean" ? wallet.disabled : undefined;
-  const reason = typeof wallet.reason === "string" ? wallet.reason : undefined;
-  return {
+  return WalletSchema.parse({
+    primary: wallet.primary,
     partyId,
-    hint: String(wallet.hint ?? hint),
-    namespace: String(wallet.namespace ?? namespace),
-    networkId: String(wallet.networkId ?? "canton:localnet"),
-    publicKey: String(wallet.publicKey ?? ""),
-    primary: Boolean(wallet.primary),
-    status,
-    signingProviderId: String(wallet.signingProviderId ?? ""),
-    externalTxId,
-    topologyTransactions,
-    disabled,
-    reason,
-  };
+    status: wallet.status ?? "allocated",
+    hint: typeof wallet.hint === "string" ? wallet.hint : hint,
+    publicKey: wallet.publicKey,
+    namespace: typeof wallet.namespace === "string" ? wallet.namespace : namespace,
+    networkId: wallet.networkId,
+    signingProviderId: wallet.signingProviderId,
+    externalTxId: wallet.externalTxId,
+    topologyTransactions: wallet.topologyTransactions,
+    disabled: wallet.disabled,
+    reason: wallet.reason,
+  });
+}
+
+function parseAccounts(rawAccounts: unknown[]): Account[] {
+  return rawAccounts.map((wallet, index) => {
+    if (typeof wallet !== "object" || wallet === null) {
+      throw new Error(`Wallet payload at index ${index} is not an object`);
+    }
+
+    return toAccount(wallet as Record<string, unknown>);
+  });
+}
+
+function notifyAccountsChangedHandlers(
+  handlers: ReadonlySet<(accounts: Account[]) => void>,
+  accounts: Account[],
+): void {
+  for (const handler of handlers) {
+    try {
+      handler(accounts);
+    } catch (error) {
+      // Consumer callbacks are advisory. One bad handler must not block later handlers or the
+      // provider's own state transition for the same accountsChanged event.
+      // oxlint-disable-next-line no-console -- REQ-REACT-CSTATE-008 requires visible warnings without breaking delivery or state mutation.
+      console.warn("[sigilry] onAccountsChanged handler threw", error);
+    }
+  }
+}
+
+function accountsEqual(left: Account[], right: Account[]): boolean {
+  if (left.length !== right.length) return false;
+
+  return left.every((account, index) => {
+    const next = right[index];
+    return (
+      account.partyId === next?.partyId &&
+      account.hint === next?.hint &&
+      account.namespace === next?.namespace &&
+      account.networkId === next?.networkId &&
+      account.publicKey === next?.publicKey &&
+      account.primary === next?.primary &&
+      account.status === next?.status &&
+      account.signingProviderId === next?.signingProviderId &&
+      account.externalTxId === next?.externalTxId &&
+      account.topologyTransactions === next?.topologyTransactions &&
+      account.disabled === next?.disabled &&
+      account.reason === next?.reason
+    );
+  });
+}
+
+function isParsedError(error: unknown): error is ParsedError {
+  if (typeof error !== "object" || error === null) return false;
+
+  const candidate = error as Partial<ParsedError>;
+  return typeof candidate.message === "string" && typeof candidate.action === "object";
 }
 
 export interface CantonContextValue {
@@ -66,7 +125,7 @@ export interface CantonContextValue {
   networkId: string | null;
   providerReady: boolean;
   // Actions
-  connect: () => Promise<void>;
+  connect: () => Promise<RpcResult<"connect">>;
   disconnect: () => Promise<void>;
   reconnect: () => Promise<void>;
   setActiveAccount: (partyId: string) => void;
@@ -76,6 +135,7 @@ export interface CantonContextValue {
     ...params: OptionalParams<M>
   ) => Promise<RpcResult<M>>;
   // Event subscription
+  onAccountsChanged: (handler: (accounts: Account[]) => void) => () => void;
   onTxChanged: (handler: (event: TxEvent) => void) => () => void;
 }
 
@@ -87,12 +147,19 @@ export interface CantonProviderProps {
   onError?: (error: ParsedError) => void;
   /** Called on connection state changes */
   onConnectionChange?: (state: ConnectionState) => void;
+  /** Grace window for event-first bootstrap before falling back to cold status */
+  initGraceMs?: number;
 }
+
+type CantonWindow = Window & {
+  canton?: CantonProvider;
+};
 
 export function CantonReactProvider({
   children,
   onError,
   onConnectionChange,
+  initGraceMs = DEFAULT_INIT_GRACE_MS,
 }: CantonProviderProps): React.ReactNode {
   // Core connection state using discriminated union
   const [connectionState, setConnectionState] = useState<ConnectionState>({
@@ -102,6 +169,12 @@ export function CantonReactProvider({
   const [activePartyId, setActivePartyId] = useState<string | null>(null);
 
   const initializedRef = useRef(false);
+  const bootstrapEventTrackingRef = useRef(false);
+  const bootstrapEventWonRef = useRef(false);
+  const providerAccountsSubscriptionRef = useRef<CantonProvider | null>(null);
+  const latestAccountsChangedHandlerRef = useRef<(rawAccounts: unknown[]) => void>(() => {});
+  // Keep account-stream subscribers on a stable ref so the provider listener can stay long-lived.
+  const accountsHandlersRef = useRef<Set<(accounts: Account[]) => void>>(new Set());
   const txHandlersRef = useRef<Set<(event: TxEvent) => void>>(new Set());
 
   // Derived values from connection state
@@ -119,7 +192,7 @@ export function CantonReactProvider({
 
   // Get the provider from window
   const getProvider = useCallback((): CantonProvider | null => {
-    return (window as unknown as { canton?: CantonProvider }).canton ?? null;
+    return (window as CantonWindow).canton ?? null;
   }, []);
 
   // RPC call helper with error parsing
@@ -138,13 +211,13 @@ export function CantonReactProvider({
       } catch (err) {
         const parsed = parseError(err);
         onError?.(parsed);
-
-        // Update connection state on session errors
-        if (
+        const sessionError =
           parsed.code === "SESSION_EXPIRED" ||
           parsed.code === "TOKEN_REFRESH_REQUIRED" ||
-          parsed.code === "NOT_CONNECTED"
-        ) {
+          parsed.code === "NOT_CONNECTED";
+
+        // Update connection state on session errors
+        if (sessionError) {
           setConnectionState((prev) => {
             const lastAccounts = prev.status === "connected" ? prev.accounts : undefined;
             return { status: "session_expired", lastAccounts };
@@ -157,27 +230,232 @@ export function CantonReactProvider({
     [getProvider, onError],
   );
 
+  const bootstrapRequest = useCallback(
+    async <M extends RpcMethodName>(
+      method: M,
+      ...params: OptionalParams<M>
+    ): Promise<RpcResult<M>> => {
+      const canton = getProvider();
+      if (!canton) throw new Error("Provider not available");
+
+      const rpcParams = params[0] as RpcParams<M> | undefined;
+      const result = await canton.request({ method, params: rpcParams });
+      return result as RpcResult<M>;
+    },
+    [getProvider],
+  );
+
   // Fetch accounts and update state
-  const fetchAccounts = useCallback(async (): Promise<Account[]> => {
-    try {
-      const result = await request("listAccounts");
-      if (Array.isArray(result) && result.length > 0) {
-        return result.map((w) => toAccount(w as Record<string, unknown>));
+  const fetchAccounts = useCallback(
+    async (rpc: RpcRequestFn = request): Promise<Account[]> => {
+      const result = await rpc("listAccounts");
+      if (!Array.isArray(result)) {
+        throw new Error("listAccounts returned a non-array payload");
       }
-      return [];
-    } catch {
-      return [];
+
+      return parseAccounts(result);
+    },
+    [request],
+  );
+
+  // During bootstrap, any parsed accountsChanged push that lands before the cold status path
+  // settles becomes authoritative and prevents fallback restore from overwriting newer state.
+  const markBootstrapEventWin = useCallback(() => {
+    if (!bootstrapEventTrackingRef.current) {
+      return;
     }
-  }, [request]);
+
+    bootstrapEventWonRef.current = true;
+  }, []);
+
+  // Promote an accountsChanged payload while preserving the existing connected network when present.
+  const promoteAccountsChanged = useCallback(
+    (newAccounts: Account[]) => {
+      markBootstrapEventWin();
+
+      if (newAccounts.length === 0) {
+        setConnectionState((prev) => {
+          const lastAccounts = prev.status === "connected" ? prev.accounts : undefined;
+          return { status: "session_expired", lastAccounts };
+        });
+        return;
+      }
+
+      const primaryAccount =
+        newAccounts.find((account) => account.primary) ?? newAccounts[0] ?? null;
+
+      setConnectionState((prev) => {
+        const nextNetworkId =
+          prev.status === "connected"
+            ? prev.networkId
+            : (primaryAccount?.networkId ?? DEFAULT_NETWORK_ID);
+
+        if (
+          prev.status === "connected" &&
+          prev.networkId === nextNetworkId &&
+          accountsEqual(prev.accounts, newAccounts)
+        ) {
+          return prev;
+        }
+
+        return {
+          status: "connected",
+          accounts: newAccounts,
+          networkId: nextNetworkId,
+        };
+      });
+
+      setActivePartyId((prev) => prev ?? primaryAccount?.partyId ?? null);
+    },
+    [markBootstrapEventWin],
+  );
+
+  // Restore connected state from a status() response using the existing listAccounts shape.
+  const restoreFromStatus = useCallback(
+    async (statusResult: RpcResult<"status">, rpc: RpcRequestFn = request) => {
+      const connection =
+        "connection" in statusResult && typeof statusResult.connection === "object"
+          ? statusResult.connection
+          : undefined;
+
+      if (!connection) {
+        // eslint-disable-next-line no-console -- REQ-REACT-CSTATE-006 preserves this legacy-shape warning.
+        console.warn("[sigilry] StatusEvent.connection missing; provider may be on legacy shape");
+        return;
+      }
+
+      if (!connection.isConnected) {
+        return;
+      }
+
+      const restoredAccounts = await fetchAccounts(rpc);
+      if (bootstrapEventWonRef.current) {
+        // An accountsChanged push can arrive while listAccounts is in flight and must remain authoritative.
+        return;
+      }
+
+      if (restoredAccounts.length === 0) {
+        return;
+      }
+
+      const primaryAccount =
+        restoredAccounts.find((account) => account.primary) ?? restoredAccounts[0] ?? null;
+      const nextNetworkId =
+        statusResult.network?.networkId ?? primaryAccount?.networkId ?? DEFAULT_NETWORK_ID;
+
+      setConnectionState((prev) => {
+        if (
+          prev.status === "connected" &&
+          prev.networkId === nextNetworkId &&
+          accountsEqual(prev.accounts, restoredAccounts)
+        ) {
+          return prev;
+        }
+
+        return {
+          status: "connected",
+          accounts: restoredAccounts,
+          networkId: nextNetworkId,
+        };
+      });
+      setActivePartyId((prev) => prev ?? primaryAccount?.partyId ?? null);
+    },
+    [fetchAccounts, request],
+  );
+
+  const handleAccountsChanged = useCallback(
+    (rawAccounts: unknown[]) => {
+      let accountsForHandlers: Account[] = [];
+
+      try {
+        accountsForHandlers =
+          !rawAccounts || rawAccounts.length === 0 ? [] : parseAccounts(rawAccounts);
+      } catch (err) {
+        onError?.(parseError(err));
+        return;
+      }
+
+      notifyAccountsChangedHandlers(accountsHandlersRef.current, accountsForHandlers);
+      promoteAccountsChanged(accountsForHandlers);
+    },
+    [onError, promoteAccountsChanged],
+  );
+
+  useEffect(() => {
+    latestAccountsChangedHandlerRef.current = handleAccountsChanged;
+  }, [handleAccountsChanged]);
+
+  const dispatchAccountsChanged = useCallback((rawAccounts: unknown[]) => {
+    latestAccountsChangedHandlerRef.current(rawAccounts);
+  }, []);
+
+  // Race a one-shot bootstrap event against the in-flight cold status request.
+  const waitForBootstrapSignal = useCallback(
+    (canton: CantonProvider, graceWindowMs: number): Promise<BootstrapInitResult> => {
+      return new Promise((resolve) => {
+        let settled = false;
+        const off = canton.off ?? canton.removeListener;
+        const cleanup = () => {
+          if (typeof off === "function") {
+            off.call(
+              canton,
+              "accountsChanged",
+              handleBootstrapAccountsChanged as (...args: unknown[]) => void,
+            );
+          }
+          clearTimeout(timeoutId);
+        };
+        const settle = (result: BootstrapInitResult) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          resolve(result);
+        };
+        const handleBootstrapAccountsChanged = (rawAccounts: unknown[]) => {
+          settle({ source: "event", rawAccounts });
+        };
+        const timeoutId = setTimeout(() => {
+          settle({ source: "timeout" });
+        }, graceWindowMs);
+
+        canton.on(
+          "accountsChanged",
+          handleBootstrapAccountsChanged as (...args: unknown[]) => void,
+        );
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    return () => {
+      const provider = providerAccountsSubscriptionRef.current;
+      if (!provider) {
+        return;
+      }
+
+      const off = provider.off ?? provider.removeListener;
+      if (typeof off === "function") {
+        off.call(
+          provider,
+          "accountsChanged",
+          dispatchAccountsChanged as (...args: unknown[]) => void,
+        );
+      }
+      providerAccountsSubscriptionRef.current = null;
+    };
+  }, [dispatchAccountsChanged]);
 
   // Connect action
   const connect = useCallback(async () => {
     setConnectionState({ status: "connecting" });
 
     try {
-      const result = await request("connect");
-      if (result?.isConnected) {
-        const fetchedAccounts = await fetchAccounts();
+      const connectResult = (await request("connect")) as ConnectResultWithAccounts;
+      if (connectResult.isConnected) {
+        const fetchedAccounts = Array.isArray(connectResult.accounts)
+          ? parseAccounts(connectResult.accounts)
+          : await fetchAccounts();
         const primaryAccount =
           fetchedAccounts.find((account) => account.primary) ?? fetchedAccounts[0] ?? null;
 
@@ -185,9 +463,10 @@ export function CantonReactProvider({
           setConnectionState({
             status: "connected",
             accounts: fetchedAccounts,
-            networkId: result.network?.networkId ?? "canton:localnet",
+            networkId: primaryAccount.networkId ?? DEFAULT_NETWORK_ID,
           });
           setActivePartyId(primaryAccount.partyId);
+          return connectResult;
         } else {
           setConnectionState({
             status: "error",
@@ -197,12 +476,31 @@ export function CantonReactProvider({
               action: { type: "reconnect" },
             },
           });
+          return connectResult;
         }
+      } else {
+        const reason = connectResult.reason ?? "Wallet refused connection";
+        const error: ParsedError = {
+          message: reason,
+          code: "NOT_CONNECTED",
+          action: { type: "retry" },
+        };
+        setConnectionState({
+          status: "error",
+          error,
+        });
+        onError?.(error);
+        throw error;
       }
     } catch (err) {
+      if (isParsedError(err)) {
+        throw err;
+      }
+
       const parsed = parseError(err);
       setConnectionState({ status: "error", error: parsed });
       onError?.(parsed);
+      throw parsed;
     }
   }, [request, fetchAccounts, onError]);
 
@@ -225,6 +523,14 @@ export function CantonReactProvider({
   // Set active account
   const setActiveAccount = useCallback((newPartyId: string) => {
     setActivePartyId(newPartyId);
+  }, []);
+
+  // Subscribe to accountsChanged events
+  const onAccountsChanged = useCallback((handler: (accounts: Account[]) => void): (() => void) => {
+    accountsHandlersRef.current.add(handler);
+    return () => {
+      accountsHandlersRef.current.delete(handler);
+    };
   }, []);
 
   // Subscribe to txChanged events
@@ -261,37 +567,90 @@ export function CantonReactProvider({
         return;
       }
 
-      setProviderReady(true);
-
-      // Check initial status and restore session
       try {
-        const statusResult = await request("status");
+        bootstrapEventWonRef.current = false;
+        bootstrapEventTrackingRef.current = initGraceMs > 0;
 
-        if (statusResult?.isConnected) {
-          const accountsResult = await request("listAccounts");
-          if (Array.isArray(accountsResult) && accountsResult.length > 0) {
-            const restoredAccounts = accountsResult.map((w) =>
-              toAccount(w as Record<string, unknown>),
-            );
-            const primaryAccount =
-              restoredAccounts.find((account) => account.primary) ?? restoredAccounts[0] ?? null;
-            setConnectionState({
-              status: "connected",
-              accounts: restoredAccounts,
-              networkId: statusResult.network?.networkId ?? "canton:localnet",
-            });
-            setActivePartyId(primaryAccount?.partyId ?? null);
-          }
+        // Install the long-lived accountsChanged listener after arming bootstrap tracking so any
+        // synchronous bootstrap announcement reaches subscribers and wins the grace race.
+        canton.on("accountsChanged", dispatchAccountsChanged as (...args: unknown[]) => void);
+        providerAccountsSubscriptionRef.current = canton;
+        setProviderReady(true);
+
+        const statusPromise = bootstrapRequest("status");
+        // Event-first bootstrap can drop the cold status result on purpose, so keep rejections handled.
+        void statusPromise.catch(() => {});
+
+        if (initGraceMs <= 0) {
+          await restoreFromStatus(await statusPromise, bootstrapRequest);
+          return;
         }
-      } catch {
-        // Ignore status errors during init
+
+        const bootstrapResult = await waitForBootstrapSignal(canton, initGraceMs);
+
+        if (bootstrapResult.source === "event") {
+          // Only a parsed accountsChanged payload is an event winner. Bound the wait for the
+          // losing status request so a hung provider cannot delay bootstrap completion forever.
+          if (bootstrapEventWonRef.current) {
+            let statusSettleTimedOut = false;
+            await Promise.race([
+              statusPromise.catch((err: unknown) => {
+                if (!statusSettleTimedOut) {
+                  throw err;
+                }
+              }),
+              new Promise<void>((resolve) => {
+                setTimeout(() => {
+                  statusSettleTimedOut = true;
+                  resolve();
+                }, STATUS_SETTLE_TIMEOUT_MS);
+              }),
+            ]);
+            return;
+          }
+          // The long-lived listener already reported malformed event payloads. They are not
+          // usable bootstrap signals, so continue to the cold status fallback below.
+        }
+
+        const statusResult = await Promise.race<
+          RpcResult<"status"> | typeof STATUS_TIMEOUT_SENTINEL
+        >([
+          statusPromise,
+          new Promise<typeof STATUS_TIMEOUT_SENTINEL>((resolve) => {
+            setTimeout(() => resolve(STATUS_TIMEOUT_SENTINEL), STATUS_SETTLE_TIMEOUT_MS);
+          }),
+        ]);
+        if (statusResult === STATUS_TIMEOUT_SENTINEL) {
+          // A silent provider is treated like no bootstrap signal.
+          return;
+        }
+        if (bootstrapEventWonRef.current) {
+          return;
+        }
+
+        await restoreFromStatus(statusResult, bootstrapRequest);
+      } catch (err) {
+        const parsed = parseError(err);
+        // Init-time failure should be visible to callers, but the provider may still recover on
+        // a later explicit connect() attempt, so keep the existing connection state.
+        onError?.(parsed);
+      } finally {
+        bootstrapEventTrackingRef.current = false;
       }
     };
 
     init();
-  }, [getProvider, request]);
+  }, [
+    bootstrapRequest,
+    dispatchAccountsChanged,
+    getProvider,
+    initGraceMs,
+    onError,
+    restoreFromStatus,
+    waitForBootstrapSignal,
+  ]);
 
-  // Event subscription effect
+  // txChanged subscription effect
   useEffect(() => {
     if (!providerReady) return;
 
@@ -304,45 +663,15 @@ export function CantonReactProvider({
       }
     };
 
-    const handleAccountsChanged = (rawAccounts: unknown[]) => {
-      if (!rawAccounts || rawAccounts.length === 0) {
-        setConnectionState((prev) => {
-          const lastAccounts = prev.status === "connected" ? prev.accounts : undefined;
-          return { status: "session_expired", lastAccounts };
-        });
-        return;
-      }
-
-      const newAccounts = rawAccounts.map((w) => toAccount(w as Record<string, unknown>));
-      const primaryAccount =
-        newAccounts.find((account) => account.primary) ?? newAccounts[0] ?? null;
-
-      setConnectionState((prev) => {
-        const currentNetworkId =
-          prev.status === "connected"
-            ? prev.networkId
-            : (primaryAccount?.networkId ?? "canton:localnet");
-        return {
-          status: "connected",
-          accounts: newAccounts,
-          networkId: currentNetworkId,
-        };
-      });
-
-      setActivePartyId((prev) => prev ?? primaryAccount?.partyId ?? null);
-    };
-
     canton.on("txChanged", handleTxChanged as (...args: unknown[]) => void);
-    canton.on("accountsChanged", handleAccountsChanged as (...args: unknown[]) => void);
 
     return () => {
       const off = canton.off ?? canton.removeListener;
       if (typeof off === "function") {
         off.call(canton, "txChanged", handleTxChanged as (...args: unknown[]) => void);
-        off.call(canton, "accountsChanged", handleAccountsChanged as (...args: unknown[]) => void);
       }
     };
-  }, [providerReady, getProvider, activePartyId]);
+  }, [providerReady, getProvider]);
 
   const value = useMemo(
     (): CantonContextValue => ({
@@ -359,6 +688,7 @@ export function CantonReactProvider({
       reconnect,
       setActiveAccount,
       request,
+      onAccountsChanged,
       onTxChanged,
     }),
     [
@@ -375,6 +705,7 @@ export function CantonReactProvider({
       reconnect,
       setActiveAccount,
       request,
+      onAccountsChanged,
       onTxChanged,
     ],
   );

@@ -4,6 +4,7 @@ import { SpliceProviderBase } from "@sigilry/dapp/provider";
 import type { TypedRequestFn } from "@sigilry/dapp/provider";
 import type {
   AccountsChangedEvent,
+  ConnectResult,
   JsPrepareSubmissionRequest,
   LedgerApiRequest,
   LedgerApiResult,
@@ -126,13 +127,15 @@ export class MockProvider extends SpliceProviderBase {
           }
           this.setConnected(true);
           this.emitAccountsChanged();
-          return this.statusEvent();
+          return this.connectResult();
         case "disconnect":
           if (this.connected) {
             console.debug("[provider] disconnected");
           }
           this.setConnected(false);
           return null;
+        case "isConnected":
+          return this.connectResult();
         case "getActiveNetwork":
           return { networkId: this.networkId } satisfies Network;
         case "listAccounts":
@@ -214,23 +217,27 @@ export class MockProvider extends SpliceProviderBase {
     this.emit("txChanged", event);
   }
 
+  private connectResult(): ConnectResult {
+    return {
+      isConnected: this.connected,
+      isNetworkConnected: this.connected,
+    };
+  }
+
   private statusEvent(): StatusEvent {
     const ledgerApiBaseUrl = this.resolveLedgerApiBaseUrl();
     const event: StatusEvent = {
-      kernel: {
-        id: "mock-kernel",
-        clientType: "browser",
+      provider: {
+        id: "mock-provider",
+        providerType: "browser",
       },
-      isConnected: this.connected,
-      isNetworkConnected: this.connected,
+      connection: this.connectResult(),
     };
 
     if (this.connected) {
       event.network = {
         networkId: this.networkId,
-        ledgerApi: {
-          baseUrl: ledgerApiBaseUrl,
-        },
+        ledgerApi: ledgerApiBaseUrl,
       };
     }
 

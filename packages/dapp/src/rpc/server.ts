@@ -34,6 +34,7 @@ const paramsSchemaByMethod: Record<RpcMethodName, z.ZodType> = {
   status: VoidParamsSchema,
   connect: VoidParamsSchema,
   disconnect: VoidParamsSchema,
+  isConnected: VoidParamsSchema,
   getActiveNetwork: VoidParamsSchema,
   listAccounts: VoidParamsSchema,
   getPrimaryAccount: VoidParamsSchema,
@@ -67,6 +68,7 @@ export interface CantonServerHandlers {
   status(): Promise<RpcMethods["status"]["result"]>;
   connect(): Promise<RpcMethods["connect"]["result"]>;
   disconnect(): Promise<RpcMethods["disconnect"]["result"]>;
+  isConnected(): Promise<RpcMethods["isConnected"]["result"]>;
   getActiveNetwork(): Promise<RpcMethods["getActiveNetwork"]["result"]>;
   listAccounts(): Promise<RpcMethods["listAccounts"]["result"]>;
   getPrimaryAccount(): Promise<RpcMethods["getPrimaryAccount"]["result"]>;
@@ -105,6 +107,7 @@ export function createCantonServer(handlers: CantonServerHandlers): CantonServer
     status: () => handlers.status(),
     connect: () => handlers.connect(),
     disconnect: () => handlers.disconnect(),
+    isConnected: () => handlers.isConnected(),
     getActiveNetwork: () => handlers.getActiveNetwork(),
     listAccounts: () => handlers.listAccounts(),
     getPrimaryAccount: () => handlers.getPrimaryAccount(),
@@ -175,6 +178,7 @@ export function createStubHandlers(): CantonServerHandlers {
     status: notImplemented("status"),
     connect: notImplemented("connect"),
     disconnect: notImplemented("disconnect"),
+    isConnected: notImplemented("isConnected"),
     getActiveNetwork: notImplemented("getActiveNetwork"),
     listAccounts: notImplemented("listAccounts"),
     getPrimaryAccount: notImplemented("getPrimaryAccount"),

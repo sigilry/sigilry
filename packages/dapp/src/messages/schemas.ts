@@ -66,10 +66,18 @@ export type JsonRpcResponse = z.infer<typeof JsonRpcResponse>;
 // Extension Messages
 // =============================================================================
 
+const SpliceTarget = z
+  .string()
+  .min(1)
+  .describe(
+    "Optional routing key for browser-extension messaging. When present, only the matching extension should handle the message.",
+  );
+
 /** Message containing a JSON-RPC request from dApp to extension */
 export const SpliceWalletRequestMessage = z.object({
   type: z.literal(WalletEvent.SPLICE_WALLET_REQUEST),
   request: JsonRpcRequest,
+  target: SpliceTarget.optional(),
 });
 export type SpliceWalletRequestMessage = z.infer<typeof SpliceWalletRequestMessage>;
 
@@ -83,12 +91,14 @@ export type SpliceWalletResponseMessage = z.infer<typeof SpliceWalletResponseMes
 /** dApp discovery message - "is extension loaded?" */
 export const SpliceWalletExtReadyMessage = z.object({
   type: z.literal(WalletEvent.SPLICE_WALLET_EXT_READY),
+  target: SpliceTarget.optional(),
 });
 export type SpliceWalletExtReadyMessage = z.infer<typeof SpliceWalletExtReadyMessage>;
 
 /** Extension acknowledgment - "yes, I'm ready" */
 export const SpliceWalletExtAckMessage = z.object({
   type: z.literal(WalletEvent.SPLICE_WALLET_EXT_ACK),
+  target: SpliceTarget.optional(),
 });
 export type SpliceWalletExtAckMessage = z.infer<typeof SpliceWalletExtAckMessage>;
 
@@ -96,6 +106,7 @@ export type SpliceWalletExtAckMessage = z.infer<typeof SpliceWalletExtAckMessage
 export const SpliceWalletExtOpenMessage = z.object({
   type: z.literal(WalletEvent.SPLICE_WALLET_EXT_OPEN),
   url: z.string().url(),
+  target: SpliceTarget.optional(),
 });
 export type SpliceWalletExtOpenMessage = z.infer<typeof SpliceWalletExtOpenMessage>;
 
