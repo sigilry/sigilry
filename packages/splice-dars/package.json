@@ -1,6 +1,6 @@
 {
   "name": "@sigilry/splice-dars",
-  "version": "0.4.1-next.0",
+  "version": "0.4.1",
   "description": "Splice DAR files for @sigilry SDK development",
   "homepage": "https://sigilry.org",
   "bugs": {

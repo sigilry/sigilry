@@ -1,5 +1,19 @@
 # @sigilry/dapp
 
+## 2.0.0
+
+### Major Changes
+
+- a16e729: Align with CIP-0103: nested StatusEvent, ConnectResult, isConnected method, v2 ledgerApi, SpliceTarget routing, WindowTransport target.
+
+  Migration notes:
+  - `@sigilry/react` `ExerciseChoiceRequest` now uses `choice` instead of `choiceName` to match the Canton Ledger API `ExerciseCommand` wire field.
+
+### Patch Changes
+
+- 239e935: Set npm `homepage` to https://sigilry.org. Previously the published packages pointed at `sigilry.github.io` (or, for `@sigilry/splice-dars`, the GitHub README) — re-publish so the npm package pages link to the canonical site. `@sigilry/splice-dars` also gains a `bugs` field for parity with the other packages.
+- a16e729: Fix Provider schema `required` list to reference the renamed `providerType` field (was `clientType` after the CIP-0103 rename), so strict JSON Schema validators and downstream codegen treat `providerType` as required rather than optional.
+
 ## 2.0.0-next.2
 
 ### Patch Changes

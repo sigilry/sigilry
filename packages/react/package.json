@@ -1,6 +1,6 @@
 {
   "name": "@sigilry/react",
-  "version": "2.0.0-next.3",
+  "version": "2.0.0",
   "description": "React hooks and context for @sigilry/dapp",
   "keywords": [
     "blockchain",
@@ -43,8 +43,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sigilry/canton-json-api": "^1.0.2-next.0",
-    "@sigilry/dapp": "^2.0.0-next.2",
+    "@sigilry/canton-json-api": "^1.0.2",
+    "@sigilry/dapp": "^2.0.0",
     "@tanstack/react-query": "^5.79.0"
   },
   "devDependencies": {

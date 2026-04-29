@@ -1,5 +1,24 @@
 # @sigilry/react
 
+## 2.0.0
+
+### Minor Changes
+
+- a16e729: Add the `initGraceMs` bootstrap grace-window option to `CantonReactProvider` and the additive `useCanton().onAccountsChanged` subscription so consumers can prefer push-driven connection state updates without breaking existing integrations. Both changes are backwards-compatible: the new prop keeps a safe default and the new subscription method is optional.
+- a16e729: Add `useSignMessage`, a react-query mutation hook for the `signMessage` wallet RPC. The hook returns `{ signMessage, signMessageAsync, isPending, isError, error, data, reset }` mirroring `useExerciseChoice` / `useSubmitCommand`. Additive only; no existing public exports change.
+
+### Patch Changes
+
+- a16e729: Align with CIP-0103 amendment: lowercase HTTP methods, object-form request bodies, PascalCase command atoms in `useExerciseChoice`, and split `connect()`/`status()` reads in the React context.
+- 239e935: Set npm `homepage` to https://sigilry.org. Previously the published packages pointed at `sigilry.github.io` (or, for `@sigilry/splice-dars`, the GitHub README) — re-publish so the npm package pages link to the canonical site. `@sigilry/splice-dars` also gains a `bugs` field for parity with the other packages.
+- a16e729: Fix bootstrap connection-state races so accountsChanged events remain authoritative during in-flight status restore and malformed grace-window account payloads report exactly one error.
+- acf18d9: Handle pruned ledger update offsets and oversized update windows in `useLedgerUpdates` and `useContractStream`, with shared request-shaping helpers for Canton JSON API consumers.
+- Updated dependencies [a16e729]
+- Updated dependencies [239e935]
+- Updated dependencies [a16e729]
+  - @sigilry/dapp@2.0.0
+  - @sigilry/canton-json-api@1.0.2
+
 ## 2.0.0-next.3
 
 ### Patch Changes
