@@ -71,6 +71,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 ```typescript
 import { SpliceProviderBase, WindowTransport } from "@sigilry/dapp";
+import type { ConnectedEvent, StatusChangedEvent } from "@sigilry/dapp/schemas";
 
 class MyProvider extends SpliceProviderBase {
   private transport: WindowTransport;
@@ -84,6 +85,16 @@ class MyProvider extends SpliceProviderBase {
     const response = await this.transport.submit(args);
     if ("error" in response) throw response.error;
     return response.result as T;
+  }
+
+  // CIP-103 §4.2.2 push events. Call these from your transport / wallet
+  // backend when authentication or network state changes.
+  signalConnected(event: ConnectedEvent): void {
+    this.emitConnected(event); // login-flow completion (one-shot)
+  }
+
+  signalStatusChanged(event: StatusChangedEvent): void {
+    this.emitStatusChanged(event); // ongoing status transitions (disconnects route through here per §4.2.2:216)
   }
 }
 ```
@@ -162,6 +173,8 @@ enum WalletEvent {
 | `ledgerApi`             | `LedgerApiRequest`           | `Record<string, unknown> \| unknown[]` | Returns the Canton Ledger API JSON response as an object or array, depending on the endpoint. |
 | `accountsChanged`       | none                         | `AccountsChangedEvent`                 | Subscribe to account changes                                                                  |
 | `txChanged`             | none                         | `TxChangedEvent`                       | Subscribe to transaction changes                                                              |
+| `statusChanged`         | none                         | `StatusChangedEvent`                   | Subscribe to provider status transitions (CIP-103 §4.2.2; disconnects route through here)     |
+| `connected`             | none                         | `ConnectedEvent`                       | Subscribe to login-flow completion (CIP-103 §4.2.2; identical payload to `statusChanged`)     |
 
 ### RPC Error Codes
 

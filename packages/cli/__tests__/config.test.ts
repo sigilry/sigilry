@@ -36,6 +36,12 @@ describe("config", () => {
       expect(defaultConfig.cleanup).toBe(true);
       expect(defaultConfig.watch).toBe(false);
     });
+
+    // Codegen is pinned to the last dpm SDK that still ships the alpha
+    // `codegen-alpha-typescript` component (sigilry-private#54).
+    test("pins dpm SDK version to 3.4.9 by default", () => {
+      expect(defaultConfig.dpmSdkVersion).toBe("3.4.9");
+    });
   });
 
   describe("resolveConfig", () => {
@@ -97,6 +103,13 @@ describe("config", () => {
       const resolved = resolveConfig(userConfig);
 
       expect(resolved.dars).toEqual(["./one.dar", "./two.dar", "./three.dar"]);
+    });
+
+    test("pins dpmSdkVersion by default and honors an override", () => {
+      expect(resolveConfig({ dars: ["./a.dar"] }).dpmSdkVersion).toBe("3.4.9");
+      expect(resolveConfig({ dars: ["./a.dar"], dpmSdkVersion: "3.4.7" }).dpmSdkVersion).toBe(
+        "3.4.7",
+      );
     });
   });
 });

@@ -40,6 +40,8 @@ const paramsSchemaByMethod: Record<RpcMethodName, z.ZodType> = {
   getPrimaryAccount: VoidParamsSchema,
   accountsChanged: VoidParamsSchema,
   txChanged: VoidParamsSchema,
+  statusChanged: VoidParamsSchema,
+  connected: VoidParamsSchema,
   prepareExecute: JsPrepareSubmissionRequestSchema,
   prepareExecuteAndWait: JsPrepareSubmissionRequestSchema,
   signMessage: SignMessageRequestSchema,
@@ -87,6 +89,8 @@ export interface CantonServerHandlers {
   // in the window transport; extensions broadcast them via provider events instead.
   accountsChanged?(): Promise<RpcMethods["accountsChanged"]["result"]>;
   txChanged?(): Promise<RpcMethods["txChanged"]["result"]>;
+  statusChanged?(): Promise<RpcMethods["statusChanged"]["result"]>;
+  connected?(): Promise<RpcMethods["connected"]["result"]>;
 }
 
 export interface CantonServer {
@@ -119,6 +123,8 @@ export function createCantonServer(handlers: CantonServerHandlers): CantonServer
     ledgerApi: (params) => handlers.ledgerApi(params as RpcMethods["ledgerApi"]["params"]),
     accountsChanged: handlers.accountsChanged ? () => handlers.accountsChanged!() : undefined,
     txChanged: handlers.txChanged ? () => handlers.txChanged!() : undefined,
+    statusChanged: handlers.statusChanged ? () => handlers.statusChanged!() : undefined,
+    connected: handlers.connected ? () => handlers.connected!() : undefined,
   };
 
   return {

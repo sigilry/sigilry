@@ -40,8 +40,9 @@ Choose your starting path:
 
 The wallet extension injects a CIP-103 provider at `window.canton`. The provider object follows the
 EIP-1193 shape that CIP-103 itself specifies (`request` / `on` / `removeListener`), routes calls through
-typed JSON-RPC method names from the CIP-103 OpenRPC schema, and emits `accountsChanged` and `txChanged`
-to signal wallet and ledger state changes. Methods with void params omit the `params` field. See
+typed JSON-RPC method names from the CIP-103 OpenRPC schema, and emits the full CIP-103 §4.2.2 push-event
+surface (`accountsChanged`, `txChanged`, `statusChanged`, `connected`) to signal wallet, ledger, and
+session/network state changes. Methods with void params omit the `params` field. See
 [CIP-103 Conformance](concepts/cip-103-conformance/) for the per-method conformance table, and the
 [@sigilry/dapp](packages/dapp/) and [@sigilry/react](packages/react/) pages for the full contract.
 

@@ -1,8 +1,19 @@
 import { z } from "zod";
-import { AccountsChangedEventSchema, TxChangedEventSchema } from "../generated/schemas.js";
+import {
+  AccountsChangedEventSchema,
+  ConnectedEventSchema,
+  StatusChangedEventSchema,
+  TxChangedEventSchema,
+} from "../generated/schemas.js";
 
 // Extension-only event payload forwarded from the background service worker to the injected provider.
 // This is not part of the canonical splice-wallet-kernel `SpliceMessage` protocol.
+//
+// Covers the full CIP-103 §4.2.2 event surface: accountsChanged, txChanged,
+// statusChanged, connected. `statusChanged` and `connected` carry an identical
+// `StatusEvent` payload per CIP-103 §4.2.2 (cip-0103.md:323-325, :382); both
+// schemas are codegen'd as `allOf StatusEvent` from the upstream-forked
+// OpenRPC spec at 0xsend/canton-network-wallet (see api-specs/).
 export const ForwardToInjectedPayloadSchema = z.discriminatedUnion("event", [
   z.object({
     type: z.literal("SPLICE_WALLET_EVENT"),
@@ -13,6 +24,16 @@ export const ForwardToInjectedPayloadSchema = z.discriminatedUnion("event", [
     type: z.literal("SPLICE_WALLET_EVENT"),
     event: z.literal("txChanged"),
     payload: TxChangedEventSchema,
+  }),
+  z.object({
+    type: z.literal("SPLICE_WALLET_EVENT"),
+    event: z.literal("statusChanged"),
+    payload: StatusChangedEventSchema,
+  }),
+  z.object({
+    type: z.literal("SPLICE_WALLET_EVENT"),
+    event: z.literal("connected"),
+    payload: ConnectedEventSchema,
   }),
 ]);
 export type ForwardToInjectedPayload = z.infer<typeof ForwardToInjectedPayloadSchema>;

@@ -1,5 +1,26 @@
 # @sigilry/dapp
 
+## 3.0.0
+
+### Major Changes
+
+- 15fed42: CIP-103 §4.2.2: ship the full push-event surface (`statusChanged` and `connected`, in addition to existing `accountsChanged` and `txChanged`). Schemas are codegen'd from an amended OpenRPC spec in the new `0xsend/canton-network-wallet` fork of `canton-network/wallet` — single source of truth, not a sigilry-local alias.
+
+  **Spec source change**: `packages/dapp/api-specs/openrpc-dapp-api.json` now includes `statusChanged` + `connected` method entries and `StatusChangedEvent` + `ConnectedEvent` component schemas. Each new component schema is `allOf StatusEvent`, so the payload shape stays identical to the `status` RPC result per CIP-103 §4.2.2 (cip-0103.md:323-325, :382). Codegen output: `StatusChangedEventSchema`, `ConnectedEventSchema`, `StatusChangedEvent`, `ConnectedEvent` in `src/generated/schemas.ts`, plus matching entries in the `RpcMethods` interface.
+
+  **Envelope coverage**: `ForwardToInjectedPayloadSchema` discriminated union (`@sigilry/dapp/messages/runtime-schemas`) now covers all four CIP-103 events.
+
+  **BREAKING** — `SpliceProviderBase`:
+  - Removed `protected setConnected(boolean)`. The helper emitted bare `"connect"` / `"disconnect"` event names with no payload, which predated CIP-103 §4.2.2 and is non-compliant on three counts: wrong event name (`connect` is the RPC method, not an event), missing `StatusEvent` payload, and `disconnect` is not in the CIP-103 event surface at all (per §4.2.2 line 216, disconnect signals flow through `statusChanged`).
+  - Replaced with `protected emitConnected(payload: ConnectedEvent)` and `protected emitStatusChanged(payload: StatusChangedEvent)`. Both update the internal `connected` flag from `payload.connection.isConnected` so `isConnected()` stays in sync with the broadcast state.
+
+  Subscriber audit at branch time found zero external consumers of `provider.on('connect', ...)` / `provider.on('disconnect', ...)`. The only `setConnected` caller was the in-repo `MockProvider` in `examples/demo-app`, which has been migrated in the same change.
+
+  **BREAKING** — `@sigilry/react` `CantonContextValue`:
+  - Adds two new required members: `onStatusChanged` and `onConnected`. Downstream consumers that construct object-literal mocks/implementations of `CantonContextValue` must add the new fields (or use a partial mock helper). The fields follow the same registration-hook pattern as the existing `onTxChanged` — `(handler) => () => void` returning an unsubscribe.
+
+  Closes sigilry-private#51. Upstream spec amendment: `0xsend/canton-network-wallet@bb/cip103-events-status-connected`.
+
 ## 2.0.0
 
 ### Major Changes

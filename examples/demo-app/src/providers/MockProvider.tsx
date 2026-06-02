@@ -121,19 +121,27 @@ export class MockProvider extends SpliceProviderBase {
       switch (payload.method) {
         case "status":
           return this.statusEvent();
-        case "connect":
-          if (!this.connected) {
+        case "connect": {
+          const wasConnected = this.connected;
+          this.connected = true;
+          if (!wasConnected) {
             console.debug("[provider] connected");
+            // CIP-103 §4.2.2: `connected` fires once per login-flow completion.
+            this.emitConnected(this.statusEvent());
           }
-          this.setConnected(true);
           this.emitAccountsChanged();
           return this.connectResult();
-        case "disconnect":
+        }
+        case "disconnect": {
           if (this.connected) {
             console.debug("[provider] disconnected");
+            this.connected = false;
+            // CIP-103 §4.2.2 (cip-0103.md:216): disconnect signals through
+            // statusChanged, not a separate `disconnect` event.
+            this.emitStatusChanged(this.statusEvent());
           }
-          this.setConnected(false);
           return null;
+        }
         case "isConnected":
           return this.connectResult();
         case "getActiveNetwork":

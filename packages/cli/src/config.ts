@@ -15,6 +15,7 @@
  * })
  * ```
  */
+import { PINNED_DPM_SDK_VERSION } from "./dpm.js";
 
 /**
  * CLI configuration options
@@ -43,6 +44,17 @@ export interface SigilryConfig {
    * Defaults to false.
    */
   watch?: boolean;
+
+  /**
+   * dpm SDK version to pin codegen to.
+   *
+   * The `codegen-alpha-typescript` generator only ships through dpm SDK 3.4.9;
+   * newer SDKs dropped the alpha component (see sigilry-private#54). Defaults to
+   * the pinned version; override only if you know a different SDK still provides
+   * the generator. An explicit `DPM_SDK_VERSION` in the environment takes
+   * precedence over this value.
+   */
+  dpmSdkVersion?: string;
 }
 
 /**
@@ -69,6 +81,7 @@ export const defaultConfig: Required<Omit<SigilryConfig, "dars">> = {
   output: "./src/generated",
   cleanup: true,
   watch: false,
+  dpmSdkVersion: PINNED_DPM_SDK_VERSION,
 };
 
 /**

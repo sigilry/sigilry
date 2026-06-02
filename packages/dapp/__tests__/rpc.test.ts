@@ -154,6 +154,10 @@ describe("RPC Client/Server", () => {
   describe("createStubHandlers", () => {
     test("all methods throw UNSUPPORTED_METHOD", async () => {
       const handlers = createStubHandlers();
+      // Keep in lockstep with the OpenRPC method set codegen'd into RpcMethods.
+      // Push-only events (accountsChanged, txChanged, statusChanged, connected)
+      // are intentionally not in createStubHandlers — they are optional event
+      // handlers on CantonServerHandlers, not routable request/response slots.
       const methods = [
         "status",
         "connect",

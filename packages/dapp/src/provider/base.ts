@@ -4,6 +4,7 @@
  * Provides the event emitter functionality. Subclasses implement
  * the `request` method for their specific transport.
  */
+import type { ConnectedEvent, StatusChangedEvent } from "../generated/schemas.js";
 import type { EventListener, ExtendedSpliceProvider, SpliceProvider } from "./interface.js";
 import type { TypedRequestFn } from "./typed-request.js";
 
@@ -101,12 +102,34 @@ export abstract class SpliceProviderBase implements ExtendedSpliceProvider {
   }
 
   /**
-   * Set connection state and emit connect/disconnect events.
+   * CIP-103 §4.2.2: emit `connected` after login flow completion.
+   *
+   * Per spec, `connected` "is only emitted as part of the login flow."
+   * Subclasses call this exactly once per successful authentication
+   * transition. The payload is a full StatusEvent (identical shape to
+   * the `status` RPC result). Updates the internal `connected` flag
+   * from `payload.connection.isConnected` so `isConnected()` stays in
+   * sync with the broadcast state.
+   *
+   * For ongoing status transitions after login (network change, session
+   * change, server-initiated disconnect), use `emitStatusChanged` instead.
    */
-  protected setConnected(connected: boolean): void {
-    if (this.connected !== connected) {
-      this.connected = connected;
-      this.emit(connected ? "connect" : "disconnect");
-    }
+  protected emitConnected(payload: ConnectedEvent): void {
+    this.connected = payload.connection.isConnected;
+    this.emit("connected", payload);
+  }
+
+  /**
+   * CIP-103 §4.2.2: emit `statusChanged` for any provider status transition.
+   *
+   * Covers network change, session change, and disconnect signals — per
+   * §4.2.2 (cip-0103.md:216) disconnects flow through this event rather
+   * than a separate `disconnect` event. The payload is a full StatusEvent
+   * (identical shape to the `status` RPC result). Updates the internal
+   * `connected` flag from `payload.connection.isConnected`.
+   */
+  protected emitStatusChanged(payload: StatusChangedEvent): void {
+    this.connected = payload.connection.isConnected;
+    this.emit("statusChanged", payload);
   }
 }

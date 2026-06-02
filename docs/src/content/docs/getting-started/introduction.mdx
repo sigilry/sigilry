@@ -19,7 +19,7 @@ Use Sigilry if you need:
 - The wallet extension injects a provider at `window.canton`.
 - dApps send JSON-RPC requests like `status`, `connect`, and `listAccounts`.
 - Responses are validated against generated Zod schemas.
-- Events like `accountsChanged` and `txChanged` are delivered through provider events.
+- The full CIP-103 §4.2.2 push-event surface (`accountsChanged`, `txChanged`, `statusChanged`, `connected`) is delivered through provider events.
 
 ## Packages at a glance
 

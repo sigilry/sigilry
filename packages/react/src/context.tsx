@@ -6,7 +6,7 @@
 
 import type React from "react";
 import { WalletSchema } from "@sigilry/dapp/schemas";
-import type { RpcMethods } from "@sigilry/dapp/schemas";
+import type { ConnectedEvent, RpcMethods, StatusChangedEvent } from "@sigilry/dapp/schemas";
 import type { ReactNode } from "react";
 import {
   createContext,
@@ -137,6 +137,13 @@ export interface CantonContextValue {
   // Event subscription
   onAccountsChanged: (handler: (accounts: Account[]) => void) => () => void;
   onTxChanged: (handler: (event: TxEvent) => void) => () => void;
+  // CIP-103 §4.2.2 push events. Same StatusEvent payload for both; the
+  // distinction is the emit trigger (statusChanged = ongoing transitions
+  // including disconnect per §4.2.2:216; connected = login-flow completion).
+  // Subscribe directly to react to push-driven session/network changes
+  // that don't surface as account-list changes.
+  onStatusChanged: (handler: (event: StatusChangedEvent) => void) => () => void;
+  onConnected: (handler: (event: ConnectedEvent) => void) => () => void;
 }
 
 const CantonContext = createContext<CantonContextValue | null>(null);
@@ -176,6 +183,8 @@ export function CantonReactProvider({
   // Keep account-stream subscribers on a stable ref so the provider listener can stay long-lived.
   const accountsHandlersRef = useRef<Set<(accounts: Account[]) => void>>(new Set());
   const txHandlersRef = useRef<Set<(event: TxEvent) => void>>(new Set());
+  const statusChangedHandlersRef = useRef<Set<(event: StatusChangedEvent) => void>>(new Set());
+  const connectedHandlersRef = useRef<Set<(event: ConnectedEvent) => void>>(new Set());
 
   // Derived values from connection state
   const isConnected = connectionState.status === "connected";
@@ -541,6 +550,25 @@ export function CantonReactProvider({
     };
   }, []);
 
+  // Subscribe to CIP-103 §4.2.2 statusChanged events.
+  const onStatusChanged = useCallback(
+    (handler: (event: StatusChangedEvent) => void): (() => void) => {
+      statusChangedHandlersRef.current.add(handler);
+      return () => {
+        statusChangedHandlersRef.current.delete(handler);
+      };
+    },
+    [],
+  );
+
+  // Subscribe to CIP-103 §4.2.2 connected events (login-flow completion).
+  const onConnected = useCallback((handler: (event: ConnectedEvent) => void): (() => void) => {
+    connectedHandlersRef.current.add(handler);
+    return () => {
+      connectedHandlersRef.current.delete(handler);
+    };
+  }, []);
+
   // Initialize provider detection and session restore
   useEffect(() => {
     if (initializedRef.current) return;
@@ -673,6 +701,41 @@ export function CantonReactProvider({
     };
   }, [providerReady, getProvider]);
 
+  // CIP-103 §4.2.2 statusChanged + connected subscription effect.
+  // Pass-through dispatch only — connectionState auto-application stays
+  // gated on accountsChanged + cold-status paths to preserve the
+  // INV-REACT-CSTATE-* invariants that govern the bootstrap race. Apps
+  // that need to react to push-driven session/network transitions register
+  // via onStatusChanged / onConnected on the context value.
+  useEffect(() => {
+    if (!providerReady) return;
+
+    const canton = getProvider();
+    if (!canton) return;
+
+    const handleStatusChanged = (event: StatusChangedEvent) => {
+      for (const handler of statusChangedHandlersRef.current) {
+        handler(event);
+      }
+    };
+    const handleConnected = (event: ConnectedEvent) => {
+      for (const handler of connectedHandlersRef.current) {
+        handler(event);
+      }
+    };
+
+    canton.on("statusChanged", handleStatusChanged as (...args: unknown[]) => void);
+    canton.on("connected", handleConnected as (...args: unknown[]) => void);
+
+    return () => {
+      const off = canton.off ?? canton.removeListener;
+      if (typeof off === "function") {
+        off.call(canton, "statusChanged", handleStatusChanged as (...args: unknown[]) => void);
+        off.call(canton, "connected", handleConnected as (...args: unknown[]) => void);
+      }
+    };
+  }, [providerReady, getProvider]);
+
   const value = useMemo(
     (): CantonContextValue => ({
       connectionState,
@@ -690,6 +753,8 @@ export function CantonReactProvider({
       request,
       onAccountsChanged,
       onTxChanged,
+      onStatusChanged,
+      onConnected,
     }),
     [
       connectionState,
@@ -707,6 +772,8 @@ export function CantonReactProvider({
       request,
       onAccountsChanged,
       onTxChanged,
+      onStatusChanged,
+      onConnected,
     ],
   );
 

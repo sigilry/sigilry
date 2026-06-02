@@ -9,10 +9,50 @@ import { promisify } from "node:util";
 import chokidar from "chokidar";
 import debug from "debug";
 import type { SigilryConfig } from "./config.js";
-import { resolveDpmCommand } from "./dpm.js";
+import {
+  buildCodegenEnv,
+  JAVA_PREFLIGHT_TIMEOUT_MS,
+  resolveDpmCommand,
+  resolveJavaCommand,
+} from "./dpm.js";
 
 const execFile = promisify(execFileCallback);
 const log = debug("sigilry:codegen");
+
+/**
+ * Verify a JVM is reachable before invoking codegen.
+ *
+ * dpm runs the `codegen-alpha-typescript` generator via `java -jar transcode.jar`,
+ * so a missing JVM otherwise surfaces as dpm's opaque
+ * `exec: "java": executable file not found in $PATH`. Fail loudly and
+ * actionably here instead.
+ */
+export async function assertJavaAvailable(
+  env: NodeJS.ProcessEnv = process.env,
+  timeoutMs: number = JAVA_PREFLIGHT_TIMEOUT_MS,
+): Promise<void> {
+  const java = resolveJavaCommand(env);
+
+  try {
+    // Bound the probe: a wedged JVM/wrapper must not hang codegen indefinitely.
+    // execFile sends SIGTERM once `timeout` elapses and rejects with killed=true.
+    await execFile(java, ["-version"], { timeout: timeoutMs });
+  } catch (err) {
+    // Distinguish a hang (timeout kill) from a missing/broken binary so the
+    // operator knows whether the JVM stalled vs. could not be found.
+    const timedOut =
+      err instanceof Error && (err as NodeJS.ErrnoException & { killed?: boolean }).killed === true;
+    const detail = err instanceof Error ? err.message : String(err);
+    const cause = timedOut
+      ? `'${java} -version' did not return within ${timeoutMs}ms (the JVM appears to hang)`
+      : `tried '${java}' and it failed (${detail})`;
+    throw new Error(
+      `sigilry codegen requires a working Java runtime (JDK 17+): dpm runs the TypeScript ` +
+        `generator via 'java -jar'. Java preflight failed — ${cause}. ` +
+        `Install a JDK or set JAVA_HOME/JAVA_BIN. See sigilry-private#54.`,
+    );
+  }
+}
 
 /** Result of a codegen operation */
 export interface CodegenResult {
@@ -58,10 +98,18 @@ export async function generateTypes(config: Required<SigilryConfig>): Promise<Co
     args.push("--cleanup");
   }
 
-  log("executing: %s %O", dpmCommand, args);
+  log("executing: %s %O (DPM_SDK_VERSION=%s)", dpmCommand, args, config.dpmSdkVersion);
 
   try {
-    const { stdout, stderr } = await execFile(dpmCommand, args);
+    // dpm shells `java -jar` for this generator; verify the JVM up front so a
+    // missing one is a clear error rather than dpm's opaque exec failure.
+    await assertJavaAvailable();
+
+    const { stdout, stderr } = await execFile(dpmCommand, args, {
+      // Pin the SDK so the alpha `codegen-alpha-typescript` component resolves
+      // regardless of the box's default dpm SDK (sigilry-private#54).
+      env: buildCodegenEnv(process.env, config.dpmSdkVersion),
+    });
 
     if (stdout) {
       log("stdout: %s", stdout);

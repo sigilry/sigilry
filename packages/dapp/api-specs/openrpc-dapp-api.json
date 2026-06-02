@@ -186,6 +186,28 @@
           "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/TxChangedEvent"
         }
       }
+    },
+    {
+      "name": "statusChanged",
+      "params": [],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/StatusChangedEvent"
+        }
+      },
+      "description": "CIP-103 §4.2.2: emitted when changes related to network connectivity and/or authentication occur on the provider. Carries the same StatusEvent payload shape described by the `status` method."
+    },
+    {
+      "name": "connected",
+      "params": [],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/ConnectedEvent"
+        }
+      },
+      "description": "CIP-103 §4.2.2: emitted exactly once as part of the login flow completing successfully. Carries the same StatusEvent payload as `statusChanged`; the distinction is the emit trigger (login-flow completion only)."
     }
   ],
   "components": {
@@ -709,6 +731,24 @@
           }
         },
         "required": ["provider", "connection"]
+      },
+      "StatusChangedEvent": {
+        "title": "StatusChangedEvent",
+        "description": "CIP-103 §4.2.2 statusChanged event payload. Identical shape to StatusEvent; kept as a distinct schema so generators can emit a per-event type that codifies the emit-trigger contract.",
+        "allOf": [
+          {
+            "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/StatusEvent"
+          }
+        ]
+      },
+      "ConnectedEvent": {
+        "title": "ConnectedEvent",
+        "description": "CIP-103 §4.2.2 connected event payload. Identical shape to StatusEvent (same as StatusChangedEvent); the per-event schema is kept distinct so generators can emit a type that codifies the login-flow-only emit trigger.",
+        "allOf": [
+          {
+            "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/StatusEvent"
+          }
+        ]
       },
       "SignMessageRequest": {
         "title": "SignMessageRequest",

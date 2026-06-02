@@ -1,5 +1,18 @@
 # @sigilry/cli
 
+## 0.3.2
+
+### Patch Changes
+
+- 4ae81f8: Pin codegen to dpm SDK 3.4.9 and add a bounded JVM preflight.
+
+  Codegen resolved the dpm SDK dynamically, which broke when a newer dpm SDK
+  changed output and produced invalid Ledger API command shapes (e.g. failing to
+  decode `com.daml.ledger.api.v2.Identifier`). Pinning to 3.4.9 restores
+  deterministic codegen output. The preflight now fails fast with an actionable
+  error (exit 1) when a compatible JVM is unavailable, instead of surfacing a
+  cryptic downstream failure. (Changeset follow-up for the already-merged #59.)
+
 ## 0.3.1
 
 ### Patch Changes

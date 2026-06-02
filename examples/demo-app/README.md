@@ -157,7 +157,7 @@ The dApp uses generated template identifiers so UI actions map directly to DAML 
 - Generate an Ed25519 keypair on load using `window.crypto.subtle.generateKey`.
 - Derive the party id from the public-key fingerprint (SHA-256, first 68 hex chars).
 - Execute ledger commands as the fixed local sandbox party `Alice` unless `actAs` is explicitly provided.
-- Emit provider events to keep UI in sync: `connect`, `disconnect`, `accountsChanged`, `txChanged`.
+- Emit the CIP-103 §4.2.2 push-event surface to keep UI in sync: `accountsChanged`, `txChanged`, `statusChanged`, `connected`. (The legacy `connect` / `disconnect` event names were removed in the §4.2.2 alignment — disconnects now route through `statusChanged` per cip-0103.md:216, and login-flow completion fires `connected` with a full `StatusEvent` payload.)
 - Void methods omit `params` entirely (`status`, `connect`, `disconnect`, `listAccounts`, `getPrimaryAccount`, `getActiveNetwork`).
 
 ## Error States
