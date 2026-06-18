@@ -5,6 +5,7 @@
  */
 
 import type React from "react";
+import type { SpliceProvider } from "@sigilry/dapp/provider";
 import { WalletSchema } from "@sigilry/dapp/schemas";
 import type { ConnectedEvent, RpcMethods, StatusChangedEvent } from "@sigilry/dapp/schemas";
 import type { ReactNode } from "react";
@@ -30,6 +31,11 @@ type RpcRequestFn = <M extends RpcMethodName>(
 ) => Promise<RpcResult<M>>;
 type BootstrapInitResult = { source: "event"; rawAccounts: unknown[] } | { source: "timeout" };
 type ConnectResultWithAccounts = RpcResult<"connect"> & { accounts?: unknown };
+type RpcPayload<M extends RpcMethodName> =
+  RpcParams<M> extends void
+    ? { method: M; params?: undefined }
+    : { method: M; params: RpcParams<M> };
+type ProviderEventName = "accountsChanged" | "txChanged" | "statusChanged" | "connected";
 
 const DEFAULT_INIT_GRACE_MS = 150;
 const DEFAULT_NETWORK_ID = "canton:localnet";
@@ -113,6 +119,26 @@ function isParsedError(error: unknown): error is ParsedError {
   return typeof candidate.message === "string" && typeof candidate.action === "object";
 }
 
+function buildRpcPayload<M extends RpcMethodName>(
+  method: M,
+  params: RpcParams<M> | undefined,
+): RpcPayload<M> {
+  if (params === undefined) {
+    return { method } as RpcPayload<M>;
+  }
+
+  return { method, params } as RpcPayload<M>;
+}
+
+function removeProviderListener(
+  provider: CantonProvider,
+  event: ProviderEventName,
+  handler: (...args: unknown[]) => void,
+): void {
+  const off = provider.off ?? provider.removeListener;
+  off.call(provider, event, handler);
+}
+
 export interface CantonContextValue {
   // Connection state (discriminated union)
   connectionState: ConnectionState;
@@ -150,6 +176,11 @@ const CantonContext = createContext<CantonContextValue | null>(null);
 
 export interface CantonProviderProps {
   children: ReactNode;
+  /**
+   * Optional discovered provider. CantonProvider is reconciled to the shared
+   * SpliceProvider shape in ./types, so wallets from useDiscovery can be used directly.
+   */
+  provider?: SpliceProvider | null;
   /** Called when an error occurs */
   onError?: (error: ParsedError) => void;
   /** Called on connection state changes */
@@ -162,12 +193,15 @@ type CantonWindow = Window & {
   canton?: CantonProvider;
 };
 
-export function CantonReactProvider({
-  children,
-  onError,
-  onConnectionChange,
-  initGraceMs = DEFAULT_INIT_GRACE_MS,
-}: CantonProviderProps): React.ReactNode {
+export function CantonReactProvider({ ...props }: CantonProviderProps): React.ReactNode {
+  const {
+    children,
+    initGraceMs = DEFAULT_INIT_GRACE_MS,
+    onConnectionChange,
+    onError,
+    provider,
+  } = props;
+  const hasControlledProvider = "provider" in props;
   // Core connection state using discriminated union
   const [connectionState, setConnectionState] = useState<ConnectionState>({
     status: "disconnected",
@@ -175,10 +209,12 @@ export function CantonReactProvider({
   const [providerReady, setProviderReady] = useState(false);
   const [activePartyId, setActivePartyId] = useState<string | null>(null);
 
-  const initializedRef = useRef(false);
+  const latestConnectionStateRef = useRef<ConnectionState>(connectionState);
+  const latestProviderReadyRef = useRef(providerReady);
+  const onErrorRef = useRef<typeof onError>(onError);
   const bootstrapEventTrackingRef = useRef(false);
   const bootstrapEventWonRef = useRef(false);
-  const providerAccountsSubscriptionRef = useRef<CantonProvider | null>(null);
+  const bootstrapGenerationRef = useRef(0);
   const latestAccountsChangedHandlerRef = useRef<(rawAccounts: unknown[]) => void>(() => {});
   // Keep account-stream subscribers on a stable ref so the provider listener can stay long-lived.
   const accountsHandlersRef = useRef<Set<(accounts: Account[]) => void>>(new Set());
@@ -196,13 +232,28 @@ export function CantonReactProvider({
 
   // Notify on connection state changes
   useEffect(() => {
+    latestConnectionStateRef.current = connectionState;
     onConnectionChange?.(connectionState);
   }, [connectionState, onConnectionChange]);
 
-  // Get the provider from window
+  useEffect(() => {
+    latestProviderReadyRef.current = providerReady;
+  }, [providerReady]);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+
+  // Controlled selection treats null/undefined as "no wallet picked"; legacy mode still probes injection.
   const getProvider = useCallback((): CantonProvider | null => {
+    if (hasControlledProvider) {
+      return provider ?? null;
+    }
+    if (typeof window === "undefined") {
+      return null;
+    }
     return (window as CantonWindow).canton ?? null;
-  }, []);
+  }, [hasControlledProvider, provider]);
 
   // RPC call helper with error parsing
   const request = useCallback(
@@ -215,11 +266,11 @@ export function CantonReactProvider({
 
       try {
         const rpcParams = params[0] as RpcParams<M> | undefined;
-        const result = await canton.request({ method, params: rpcParams });
+        const result = await canton.request(buildRpcPayload(method, rpcParams));
         return result as RpcResult<M>;
       } catch (err) {
         const parsed = parseError(err);
-        onError?.(parsed);
+        onErrorRef.current?.(parsed);
         const sessionError =
           parsed.code === "SESSION_EXPIRED" ||
           parsed.code === "TOKEN_REFRESH_REQUIRED" ||
@@ -236,7 +287,7 @@ export function CantonReactProvider({
         throw err;
       }
     },
-    [getProvider, onError],
+    [getProvider],
   );
 
   const bootstrapRequest = useCallback(
@@ -248,7 +299,7 @@ export function CantonReactProvider({
       if (!canton) throw new Error("Provider not available");
 
       const rpcParams = params[0] as RpcParams<M> | undefined;
-      const result = await canton.request({ method, params: rpcParams });
+      const result = await canton.request(buildRpcPayload(method, rpcParams));
       return result as RpcResult<M>;
     },
     [getProvider],
@@ -321,7 +372,15 @@ export function CantonReactProvider({
 
   // Restore connected state from a status() response using the existing listAccounts shape.
   const restoreFromStatus = useCallback(
-    async (statusResult: RpcResult<"status">, rpc: RpcRequestFn = request) => {
+    async (
+      statusResult: RpcResult<"status">,
+      rpc: RpcRequestFn = request,
+      shouldApply: () => boolean = () => true,
+    ) => {
+      if (!shouldApply()) {
+        return;
+      }
+
       const connection =
         "connection" in statusResult && typeof statusResult.connection === "object"
           ? statusResult.connection
@@ -338,7 +397,7 @@ export function CantonReactProvider({
       }
 
       const restoredAccounts = await fetchAccounts(rpc);
-      if (bootstrapEventWonRef.current) {
+      if (!shouldApply() || bootstrapEventWonRef.current) {
         // An accountsChanged push can arrive while listAccounts is in flight and must remain authoritative.
         return;
       }
@@ -380,14 +439,14 @@ export function CantonReactProvider({
         accountsForHandlers =
           !rawAccounts || rawAccounts.length === 0 ? [] : parseAccounts(rawAccounts);
       } catch (err) {
-        onError?.(parseError(err));
+        onErrorRef.current?.(parseError(err));
         return;
       }
 
       notifyAccountsChangedHandlers(accountsHandlersRef.current, accountsForHandlers);
       promoteAccountsChanged(accountsForHandlers);
     },
-    [onError, promoteAccountsChanged],
+    [promoteAccountsChanged],
   );
 
   useEffect(() => {
@@ -403,15 +462,12 @@ export function CantonReactProvider({
     (canton: CantonProvider, graceWindowMs: number): Promise<BootstrapInitResult> => {
       return new Promise((resolve) => {
         let settled = false;
-        const off = canton.off ?? canton.removeListener;
         const cleanup = () => {
-          if (typeof off === "function") {
-            off.call(
-              canton,
-              "accountsChanged",
-              handleBootstrapAccountsChanged as (...args: unknown[]) => void,
-            );
-          }
+          removeProviderListener(
+            canton,
+            "accountsChanged",
+            handleBootstrapAccountsChanged as (...args: unknown[]) => void,
+          );
           clearTimeout(timeoutId);
         };
         const settle = (result: BootstrapInitResult) => {
@@ -435,25 +491,6 @@ export function CantonReactProvider({
     },
     [],
   );
-
-  useEffect(() => {
-    return () => {
-      const provider = providerAccountsSubscriptionRef.current;
-      if (!provider) {
-        return;
-      }
-
-      const off = provider.off ?? provider.removeListener;
-      if (typeof off === "function") {
-        off.call(
-          provider,
-          "accountsChanged",
-          dispatchAccountsChanged as (...args: unknown[]) => void,
-        );
-      }
-      providerAccountsSubscriptionRef.current = null;
-    };
-  }, [dispatchAccountsChanged]);
 
   // Connect action
   const connect = useCallback(async () => {
@@ -498,7 +535,7 @@ export function CantonReactProvider({
           status: "error",
           error,
         });
-        onError?.(error);
+        onErrorRef.current?.(error);
         throw error;
       }
     } catch (err) {
@@ -508,10 +545,10 @@ export function CantonReactProvider({
 
       const parsed = parseError(err);
       setConnectionState({ status: "error", error: parsed });
-      onError?.(parsed);
+      onErrorRef.current?.(parsed);
       throw parsed;
     }
-  }, [request, fetchAccounts, onError]);
+  }, [request, fetchAccounts]);
 
   // Disconnect action
   const disconnect = useCallback(async () => {
@@ -520,7 +557,9 @@ export function CantonReactProvider({
     } catch {
       // Ignore disconnect errors
     }
-    setConnectionState({ status: "disconnected" });
+    setConnectionState((previous) =>
+      previous.status === "disconnected" ? previous : { status: "disconnected" },
+    );
     setActivePartyId(null);
   }, [request]);
 
@@ -571,27 +610,63 @@ export function CantonReactProvider({
 
   // Initialize provider detection and session restore
   useEffect(() => {
-    if (initializedRef.current) return;
-    initializedRef.current = true;
+    let cancelled = false;
+    const generation = bootstrapGenerationRef.current + 1;
+    bootstrapGenerationRef.current = generation;
+    const listenerCleanups: (() => void)[] = [];
+    const isCurrent = () => !cancelled && bootstrapGenerationRef.current === generation;
+
+    if (
+      latestProviderReadyRef.current ||
+      latestConnectionStateRef.current.status !== "disconnected"
+    ) {
+      setProviderReady(false);
+      setConnectionState({ status: "disconnected" });
+      setActivePartyId(null);
+    }
+    bootstrapEventTrackingRef.current = false;
+    bootstrapEventWonRef.current = false;
+
+    const addProviderListener = (
+      canton: CantonProvider,
+      event: ProviderEventName,
+      handler: (...args: unknown[]) => void,
+    ) => {
+      canton.on(event, handler);
+      listenerCleanups.push(() => {
+        removeProviderListener(canton, event, handler);
+      });
+    };
 
     const init = async () => {
-      // Wait for provider injection
-      let attempts = 0;
-      while (!getProvider() && attempts < 100) {
-        await new Promise((r) => setTimeout(r, 100));
-        attempts++;
+      let canton = getProvider();
+
+      if (!canton && !hasControlledProvider) {
+        // Preserve the legacy extension-injection grace period only for callers that do not
+        // opt into controlled provider selection.
+        let attempts = 0;
+        while (!getProvider() && attempts < 100 && isCurrent()) {
+          await new Promise((r) => setTimeout(r, 100));
+          attempts++;
+        }
+        canton = getProvider();
       }
 
-      const canton = getProvider();
+      if (!isCurrent()) {
+        return;
+      }
+
       if (!canton) {
-        setConnectionState({
-          status: "error",
-          error: {
-            message: "Extension not found. Is Send Wallet installed?",
-            code: "NOT_CONNECTED",
-            action: { type: "none" },
-          },
-        });
+        if (!hasControlledProvider) {
+          setConnectionState({
+            status: "error",
+            error: {
+              message: "Extension not found. Is Send Wallet installed?",
+              code: "NOT_CONNECTED",
+              action: { type: "none" },
+            },
+          });
+        }
         return;
       }
 
@@ -601,8 +676,26 @@ export function CantonReactProvider({
 
         // Install the long-lived accountsChanged listener after arming bootstrap tracking so any
         // synchronous bootstrap announcement reaches subscribers and wins the grace race.
-        canton.on("accountsChanged", dispatchAccountsChanged as (...args: unknown[]) => void);
-        providerAccountsSubscriptionRef.current = canton;
+        addProviderListener(
+          canton,
+          "accountsChanged",
+          dispatchAccountsChanged as (...args: unknown[]) => void,
+        );
+        addProviderListener(canton, "txChanged", (event) => {
+          for (const handler of txHandlersRef.current) {
+            handler(event as TxEvent);
+          }
+        });
+        addProviderListener(canton, "statusChanged", (event) => {
+          for (const handler of statusChangedHandlersRef.current) {
+            handler(event as StatusChangedEvent);
+          }
+        });
+        addProviderListener(canton, "connected", (event) => {
+          for (const handler of connectedHandlersRef.current) {
+            handler(event as ConnectedEvent);
+          }
+        });
         setProviderReady(true);
 
         const statusPromise = bootstrapRequest("status");
@@ -610,11 +703,18 @@ export function CantonReactProvider({
         void statusPromise.catch(() => {});
 
         if (initGraceMs <= 0) {
-          await restoreFromStatus(await statusPromise, bootstrapRequest);
+          const status = await statusPromise;
+          if (!isCurrent()) {
+            return;
+          }
+          await restoreFromStatus(status, bootstrapRequest, isCurrent);
           return;
         }
 
         const bootstrapResult = await waitForBootstrapSignal(canton, initGraceMs);
+        if (!isCurrent()) {
+          return;
+        }
 
         if (bootstrapResult.source === "event") {
           // Only a parsed accountsChanged payload is an event winner. Bound the wait for the
@@ -652,89 +752,43 @@ export function CantonReactProvider({
           // A silent provider is treated like no bootstrap signal.
           return;
         }
-        if (bootstrapEventWonRef.current) {
+        if (!isCurrent() || bootstrapEventWonRef.current) {
           return;
         }
 
-        await restoreFromStatus(statusResult, bootstrapRequest);
+        await restoreFromStatus(statusResult, bootstrapRequest, isCurrent);
       } catch (err) {
+        if (!isCurrent()) {
+          return;
+        }
         const parsed = parseError(err);
         // Init-time failure should be visible to callers, but the provider may still recover on
         // a later explicit connect() attempt, so keep the existing connection state.
-        onError?.(parsed);
+        onErrorRef.current?.(parsed);
       } finally {
-        bootstrapEventTrackingRef.current = false;
+        if (isCurrent()) {
+          bootstrapEventTrackingRef.current = false;
+        }
       }
     };
 
-    init();
+    void init();
+
+    return () => {
+      cancelled = true;
+      for (const cleanup of listenerCleanups.splice(0).reverse()) {
+        cleanup();
+      }
+    };
   }, [
     bootstrapRequest,
     dispatchAccountsChanged,
     getProvider,
+    hasControlledProvider,
     initGraceMs,
-    onError,
     restoreFromStatus,
     waitForBootstrapSignal,
   ]);
-
-  // txChanged subscription effect
-  useEffect(() => {
-    if (!providerReady) return;
-
-    const canton = getProvider();
-    if (!canton) return;
-
-    const handleTxChanged = (event: TxEvent) => {
-      for (const handler of txHandlersRef.current) {
-        handler(event);
-      }
-    };
-
-    canton.on("txChanged", handleTxChanged as (...args: unknown[]) => void);
-
-    return () => {
-      const off = canton.off ?? canton.removeListener;
-      if (typeof off === "function") {
-        off.call(canton, "txChanged", handleTxChanged as (...args: unknown[]) => void);
-      }
-    };
-  }, [providerReady, getProvider]);
-
-  // CIP-103 §4.2.2 statusChanged + connected subscription effect.
-  // Pass-through dispatch only — connectionState auto-application stays
-  // gated on accountsChanged + cold-status paths to preserve the
-  // INV-REACT-CSTATE-* invariants that govern the bootstrap race. Apps
-  // that need to react to push-driven session/network transitions register
-  // via onStatusChanged / onConnected on the context value.
-  useEffect(() => {
-    if (!providerReady) return;
-
-    const canton = getProvider();
-    if (!canton) return;
-
-    const handleStatusChanged = (event: StatusChangedEvent) => {
-      for (const handler of statusChangedHandlersRef.current) {
-        handler(event);
-      }
-    };
-    const handleConnected = (event: ConnectedEvent) => {
-      for (const handler of connectedHandlersRef.current) {
-        handler(event);
-      }
-    };
-
-    canton.on("statusChanged", handleStatusChanged as (...args: unknown[]) => void);
-    canton.on("connected", handleConnected as (...args: unknown[]) => void);
-
-    return () => {
-      const off = canton.off ?? canton.removeListener;
-      if (typeof off === "function") {
-        off.call(canton, "statusChanged", handleStatusChanged as (...args: unknown[]) => void);
-        off.call(canton, "connected", handleConnected as (...args: unknown[]) => void);
-      }
-    };
-  }, [providerReady, getProvider]);
 
   const value = useMemo(
     (): CantonContextValue => ({

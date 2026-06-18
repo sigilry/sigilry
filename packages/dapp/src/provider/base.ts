@@ -4,9 +4,30 @@
  * Provides the event emitter functionality. Subclasses implement
  * the `request` method for their specific transport.
  */
-import type { ConnectedEvent, StatusChangedEvent } from "../generated/schemas.js";
+import {
+  AccountsChangedEventSchema,
+  ConnectedEventSchema,
+  StatusChangedEventSchema,
+  TxChangedEventSchema,
+  type ConnectedEvent,
+  type StatusChangedEvent,
+} from "../generated/schemas.js";
+import type { BidirectionalTransport } from "../transport/types.js";
 import type { EventListener, ExtendedSpliceProvider, SpliceProvider } from "./interface.js";
 import type { TypedRequestFn } from "./typed-request.js";
+
+const providerEventSchemas = {
+  accountsChanged: AccountsChangedEventSchema,
+  connected: ConnectedEventSchema,
+  statusChanged: StatusChangedEventSchema,
+  txChanged: TxChangedEventSchema,
+} as const;
+
+type ProviderEventMethod = keyof typeof providerEventSchemas;
+
+function isProviderEventMethod(method: string): method is ProviderEventMethod {
+  return Object.prototype.hasOwnProperty.call(providerEventSchemas, method);
+}
 
 /**
  * Abstract base class for SpliceProvider implementations.
@@ -20,6 +41,9 @@ export abstract class SpliceProviderBase implements ExtendedSpliceProvider {
 
   /** Connection state */
   protected connected = false;
+
+  private eventTransport: Pick<BidirectionalTransport, "onNotification"> | undefined;
+  private unsubscribeFromEventTransport: (() => void) | undefined;
 
   /**
    * Send a JSON-RPC request. Implemented by subclasses.
@@ -37,12 +61,16 @@ export abstract class SpliceProviderBase implements ExtendedSpliceProvider {
    * Subscribe to an event.
    */
   on<T = unknown>(event: string, listener: EventListener<T>): SpliceProvider {
+    const listenerCountBefore = this.totalListenerCount();
     let eventListeners = this.listeners.get(event);
     if (!eventListeners) {
       eventListeners = new Set();
       this.listeners.set(event, eventListeners);
     }
     eventListeners.add(listener as EventListener);
+    if (listenerCountBefore === 0 && this.totalListenerCount() > 0) {
+      this.subscribeToEventTransport();
+    }
     return this;
   }
 
@@ -79,6 +107,7 @@ export abstract class SpliceProviderBase implements ExtendedSpliceProvider {
         this.listeners.delete(event);
       }
     }
+    this.unsubscribeFromEventTransportIfIdle();
     return this;
   }
 
@@ -91,6 +120,7 @@ export abstract class SpliceProviderBase implements ExtendedSpliceProvider {
     } else {
       this.listeners.clear();
     }
+    this.unsubscribeFromEventTransportIfIdle();
     return this;
   }
 
@@ -131,5 +161,55 @@ export abstract class SpliceProviderBase implements ExtendedSpliceProvider {
   protected emitStatusChanged(payload: StatusChangedEvent): void {
     this.connected = payload.connection.isConnected;
     this.emit("statusChanged", payload);
+  }
+
+  /**
+   * Attach a transport notification source without making the base class own
+   * transport construction. Concrete providers call this after they have their
+   * transport; subscription stays lazy until the first dApp listener exists.
+   */
+  protected attachEventTransport(transport: Pick<BidirectionalTransport, "onNotification">): void {
+    this.unsubscribeFromEventTransport?.();
+    this.unsubscribeFromEventTransport = undefined;
+    this.eventTransport = transport;
+    if (this.totalListenerCount() > 0) {
+      this.subscribeToEventTransport();
+    }
+  }
+
+  private subscribeToEventTransport(): void {
+    if (!this.eventTransport || this.unsubscribeFromEventTransport) {
+      return;
+    }
+    this.unsubscribeFromEventTransport = this.eventTransport.onNotification((method, params) => {
+      this.emitTransportNotification(method, params);
+    });
+  }
+
+  private unsubscribeFromEventTransportIfIdle(): void {
+    if (this.totalListenerCount() > 0) {
+      return;
+    }
+    this.unsubscribeFromEventTransport?.();
+    this.unsubscribeFromEventTransport = undefined;
+  }
+
+  private emitTransportNotification(method: string, params: unknown): void {
+    if (!isProviderEventMethod(method)) {
+      return;
+    }
+    const parsed = providerEventSchemas[method].safeParse(params);
+    if (!parsed.success) {
+      return;
+    }
+    this.emit(method, parsed.data);
+  }
+
+  private totalListenerCount(): number {
+    let count = 0;
+    for (const eventListeners of this.listeners.values()) {
+      count += eventListeners.size;
+    }
+    return count;
   }
 }

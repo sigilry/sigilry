@@ -52,11 +52,16 @@ export const DISCONNECTED_STATUS = {
 export function createMockProvider(handler: RpcHandler): CantonProvider & {
   calls: RpcRequest[];
   emit: (event: string, ...args: unknown[]) => void;
+  listenerCount: (event: string) => number;
+  offCalls: { event: string; listener: EventHandler }[];
+  removeListenerCalls: { event: string; listener: EventHandler }[];
 } {
   const listeners = new Map<string, Set<EventHandler>>();
   const calls: RpcRequest[] = [];
+  const offCalls: { event: string; listener: EventHandler }[] = [];
+  const removeListenerCalls: { event: string; listener: EventHandler }[] = [];
 
-  return {
+  const provider = {
     calls,
     async request(request) {
       calls.push(request);
@@ -66,19 +71,38 @@ export function createMockProvider(handler: RpcHandler): CantonProvider & {
       const handlers = listeners.get(event) ?? new Set<EventHandler>();
       handlers.add(listener);
       listeners.set(event, handlers);
+      return provider;
     },
     off(event, listener) {
+      offCalls.push({ event, listener });
       listeners.get(event)?.delete(listener);
+      return provider;
     },
     removeListener(event, listener) {
+      removeListenerCalls.push({ event, listener });
       listeners.get(event)?.delete(listener);
+      return provider;
     },
     emit(event, ...args) {
       for (const listener of listeners.get(event) ?? []) {
         listener(...args);
       }
+      return (listeners.get(event)?.size ?? 0) > 0;
     },
+    listenerCount(event) {
+      return listeners.get(event)?.size ?? 0;
+    },
+    offCalls,
+    removeListenerCalls,
+  } satisfies CantonProvider & {
+    calls: RpcRequest[];
+    emit: (event: string, ...args: unknown[]) => boolean;
+    listenerCount: (event: string) => number;
+    offCalls: { event: string; listener: EventHandler }[];
+    removeListenerCalls: { event: string; listener: EventHandler }[];
   };
+
+  return provider;
 }
 
 export function installMockProvider(provider: CantonProvider): void {
@@ -88,6 +112,7 @@ export function installMockProvider(provider: CantonProvider): void {
 export function createHookWrapper(
   options: {
     onError?: (error: ParsedError) => void;
+    provider?: CantonProvider | null;
   } = {},
 ) {
   const queryClient = new QueryClient({
@@ -98,9 +123,13 @@ export function createHookWrapper(
   });
 
   function Wrapper({ children }: PropsWithChildren) {
+    const providerProps = "provider" in options ? { provider: options.provider } : {};
+
     return (
       <QueryClientProvider client={queryClient}>
-        <CantonReactProvider onError={options.onError}>{children}</CantonReactProvider>
+        <CantonReactProvider onError={options.onError} {...providerProps}>
+          {children}
+        </CantonReactProvider>
       </QueryClientProvider>
     );
   }

@@ -1,4 +1,10 @@
-export type { BidirectionalTransport, RpcTransport, TransportOptions } from "./types.js";
+export type {
+  BidirectionalTransport,
+  NotificationListener,
+  NotificationMeta,
+  RpcTransport,
+  TransportOptions,
+} from "./types.js";
 
 export { DEFAULT_TRANSPORT_OPTIONS } from "./types.js";
 

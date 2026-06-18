@@ -5,6 +5,7 @@
  * Uses discriminated unions to make illegal states unrepresentable.
  */
 
+import type { SpliceProvider } from "@sigilry/dapp/provider";
 import type { StatusEvent, TxChangedEvent, Wallet } from "@sigilry/dapp/schemas";
 
 /**
@@ -147,15 +148,11 @@ export type StatusType = "connected" | "disconnected" | "connecting" | "error";
  */
 export type TxEvent = TxChangedEvent;
 
-/**
- * Canton provider interface (injected by extension)
- */
-export interface CantonProvider {
-  request: (params: { method: string; params?: unknown }) => Promise<unknown>;
-  on: (event: string, handler: (...args: unknown[]) => void) => void;
-  off?: (event: string, handler: (...args: unknown[]) => void) => void;
-  removeListener?: (event: string, handler: (...args: unknown[]) => void) => void;
-}
+// Keep the public React name for compatibility, but source it from the shared dapp
+// provider contract so discovery wallets can be passed into CantonReactProvider directly.
+export type CantonProvider = SpliceProvider & {
+  off?: (event: string, handler: (...args: unknown[]) => void) => SpliceProvider;
+};
 
 /**
  * StatusResult from connect() and status() methods

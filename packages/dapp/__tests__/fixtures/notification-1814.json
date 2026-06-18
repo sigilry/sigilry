@@ -1,0 +1,12 @@
+{
+  "type": "SPLICE_WALLET_REQUEST",
+  "request": {
+    "jsonrpc": "2.0",
+    "method": "txChanged",
+    "params": {
+      "updateId": "update-1814",
+      "recordTime": "2026-06-13T15:16:33.502Z"
+    }
+  },
+  "target": "browser:canton"
+}

@@ -25,9 +25,12 @@
 
 - React hook abstractions (owned by `@sigilry/react`)
 - Ledger endpoint request body typing for Canton JSON API v2 (owned by `@sigilry/canton-json-api`)
+- Provider discovery and the push-event channel — see [`./discovery.spec.md`](./discovery.spec.md)
+  (the `mipd`/`viem`-tier substrate the React tier builds on)
 
 ## Related Specs
 
 - `SPEC.md`
+- [`./discovery.spec.md`](./discovery.spec.md) — provider discovery (`canton:announceProvider`) + push-event channel
 - `specs/relay-protocol.spec.md`
 - `packages/react/SPEC.md`

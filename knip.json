@@ -2,20 +2,15 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "workspaces": {
     "packages/dapp": {
-      "entry": ["src/index.ts", "src/browser-globals.ts"],
+      "entry": ["src/index.ts", "src/browser-globals.ts", "src/discovery/index.ts"],
       "project": ["src/**/*.ts", "!src/generated/**"],
       "ignore": ["src/messages/runtime-schemas.ts", "src/messages/schemas.ts"]
     },
     "packages/react": {
       "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"],
+      "project": ["src/**/*.{ts,tsx}"],
       "ignore": ["src/hooks/index.ts", "src/hooks/useExerciseChoice.ts"],
-      "ignoreDependencies": [
-        "@happy-dom/global-registrator",
-        "@testing-library/dom",
-        "@testing-library/react",
-        "react-dom"
-      ]
+      "ignoreDependencies": ["@happy-dom/global-registrator"]
     },
     "packages/cli": {
       "project": ["src/**/*.ts"]

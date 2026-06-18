@@ -31,7 +31,7 @@
     "check-dependency-version-consistency": "^5.0.1",
     "jscpd": "^4.0.7",
     "knip": "^5.81.0",
-    "lefthook": "^2.0.15",
+    "lefthook": "^2.1.9",
     "oxfmt": "^0.24.0",
     "oxlint": "^1.39.0",
     "turbo": "^2.3.0",

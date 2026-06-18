@@ -52,10 +52,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Install Nix
-        uses: DeterminateSystems/determinate-nix-action@89ab342bd48ff7318caf8d39d6a330c7b1df8f2f # v3
+        uses: DeterminateSystems/determinate-nix-action@9adf02b41cfdac2632e1c16f0480ff5bf3b05dd6 # v3.21.1
         with:
           extra-conf: |
             experimental-features = nix-command flakes
@@ -64,7 +64,7 @@ jobs:
         run: nix develop --command bash -lc "node --version && corepack yarn --version && bun --version && dpm --version && java -version"
 
       - name: Cache dependencies
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             .yarn/cache
@@ -76,7 +76,7 @@ jobs:
           key: ${{ runner.os }}-deps-${{ hashFiles('yarn.lock', '.yarnrc.yml', '.yarn/patches/**', 'flake.lock') }}
 
       - name: Cache DPM SDK artifacts
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.dpm/cache
           key: ${{ runner.os }}-dpm-sdk-${{ hashFiles('examples/demo-app/daml.yaml', 'flake.lock') }}
@@ -122,22 +122,22 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Install Nix
-        uses: DeterminateSystems/determinate-nix-action@89ab342bd48ff7318caf8d39d6a330c7b1df8f2f # v3
+        uses: DeterminateSystems/determinate-nix-action@9adf02b41cfdac2632e1c16f0480ff5bf3b05dd6 # v3.21.1
         with:
           extra-conf: |
             experimental-features = nix-command flakes
 
       - name: Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d # v14
 
       - name: Warm Nix toolchain
         run: nix develop --command bash -lc "node --version && corepack yarn --version && bun --version && dpm --version && java -version"
 
       - name: Cache dependencies
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             .yarn/cache
@@ -149,7 +149,7 @@ jobs:
           key: ${{ runner.os }}-deps-${{ hashFiles('yarn.lock', '.yarnrc.yml', '.yarn/patches/**', 'flake.lock') }}
 
       - name: Cache DPM SDK artifacts
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.dpm/cache
           key: ${{ runner.os }}-dpm-sdk-${{ hashFiles('examples/demo-app/daml.yaml', 'flake.lock') }}

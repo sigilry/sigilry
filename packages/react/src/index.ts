@@ -25,6 +25,10 @@
 // Context
 export { type CantonContextValue, CantonReactProvider, useCanton } from "./context";
 
+// Provider discovery
+export { WalletPicker, type WalletPickerProps, useDiscovery } from "./discovery";
+export type { DiscoveredWallet, SpliceProviderInfo } from "@sigilry/dapp/discovery";
+
 // Hooks
 export {
   type ActiveContract,

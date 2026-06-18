@@ -1,6 +1,6 @@
 {
   "name": "@sigilry/dapp",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Chain/transport-agnostic dApp infrastructure - RPC client/server and transports",
   "keywords": [
     "blockchain",
@@ -54,6 +54,10 @@
       "types": "./dist/src/generated/schemas.d.ts",
       "default": "./dist/src/generated/schemas.js"
     },
+    "./discovery": {
+      "types": "./dist/src/discovery/index.d.ts",
+      "default": "./dist/src/discovery/index.js"
+    },
     "./provider": {
       "types": "./dist/src/provider/index.d.ts",
       "default": "./dist/src/provider/index.js"
@@ -89,6 +93,7 @@
       "./messages/runtime-schemas": "./src/messages/runtime-schemas.ts",
       "./rpc": "./src/rpc/index.ts",
       "./schemas": "./src/generated/schemas.ts",
+      "./discovery": "./src/discovery/index.ts",
       "./provider": "./src/provider/index.ts",
       "./transport": "./src/transport/index.ts"
     },

@@ -5,6 +5,16 @@
  */
 import type { RequestPayload, ResponsePayload } from "../messages/schemas.js";
 
+export type NotificationMeta = {
+  target?: string;
+};
+
+export type NotificationListener = (
+  method: string,
+  params: unknown,
+  meta: NotificationMeta,
+) => void;
+
 /**
  * RPC transport interface.
  *
@@ -24,6 +34,23 @@ export interface RpcTransport {
  * Bidirectional transport that can also receive messages.
  */
 export interface BidirectionalTransport extends RpcTransport {
+  /**
+   * Subscribe to wallet-pushed JSON-RPC notifications.
+   *
+   * @param listener - Notification callback invoked for id-less request frames
+   * @returns Unsubscribe function
+   */
+  onNotification(listener: NotificationListener): () => void;
+
+  /**
+   * Send a wallet-pushed notification to listeners.
+   *
+   * @param event - Notification method name
+   * @param payload - Notification params payload
+   * @param target - Optional routing key for browser-extension messaging
+   */
+  notify(event: string, payload: unknown, target?: string): void;
+
   /**
    * Send a response back to the requester.
    *
