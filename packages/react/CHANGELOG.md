@@ -1,5 +1,11 @@
 # @sigilry/react
 
+## 3.1.1
+
+### Patch Changes
+
+- 3b8758b: Fix the published `@sigilry/dapp` dependency range. `@sigilry/react@3.1.0` shipped with an unresolved `"@sigilry/dapp": "workspace:^"` protocol string because `changeset publish` does not strip the Yarn workspace protocol the way `yarn npm publish` does — this made `@sigilry/react@3.1.0` uninstallable (`Workspace not found`). Pin the dependency to `^3.1.0` so it publishes as a real semver range; Yarn still links the local workspace in development.
+
 ## 3.1.0
 
 ### Minor Changes
