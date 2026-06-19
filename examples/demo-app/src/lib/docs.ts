@@ -6,4 +6,5 @@ export const docsLinks = {
   react: `${DOCS_BASE_URL}/packages/react/`,
   rpcProtocol: `${DOCS_BASE_URL}/concepts/rpc-protocol/`,
   architecture: `${DOCS_BASE_URL}/concepts/architecture/`,
+  discovery: `${DOCS_BASE_URL}/concepts/discovery/`,
 };

@@ -8,6 +8,7 @@
 
 - Exercise `@sigilry/dapp`, `@sigilry/react`, and `@sigilry/cli` together.
 - Provide a reproducible local flow for:
+  - provider discovery (the demo wallet announces over `canton:announceProvider` and is served over the window transport, so `WalletPicker` lists it alongside any real installed wallet)
   - wallet connection
   - account/session state
   - command submission

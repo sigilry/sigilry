@@ -5,7 +5,8 @@ description: A guided walkthrough of the Sigilry demo app and how it mirrors a r
 
 The Sigilry demo app is a **self-contained reference implementation** that shows how a dApp talks to a wallet
 over the Canton network using typed JSON-RPC and the `@sigilry/react` hooks. It pairs a dApp pane with a wallet
-simulator pane so you can see the full request -> approval -> ledger flow.
+simulator pane so you can see the full discovery -> connect -> approval -> ledger flow, including the CIP-103
+push events the wallet emits along the way.
 
 ## Canton onboarding path
 
@@ -19,9 +20,9 @@ This mirrors real Canton projects: contract model first, then typed client bindi
 
 ## Why it matters
 
-- Demonstrates the canonical `window.canton` flow in a safe, local environment.
+- Demonstrates provider discovery (`useDiscovery` + `WalletPicker` + a controlled `provider`) in a safe, local environment.
 - Uses the same hooks and provider patterns you would use in production.
-- Makes approvals and `txChanged` events visible so the data flow is easy to follow.
+- Makes approvals and the full CIP-103 push-event surface (`accountsChanged`, `statusChanged`, `txChanged`, and the `connected` login event) visible so the data flow is easy to follow.
 
 ## Quick start (demo app)
 
@@ -40,10 +41,11 @@ yarn --cwd examples/demo-app dev
 
 Open `http://localhost:5173` and:
 
-1. Click **Connect wallet**.
-2. Click **Create TodoList** (if no active factory exists).
-3. Add a todo and approve the request in the wallet pane.
-4. Observe the ledger update and the `txChanged` log.
+1. Pick a wallet in the **Discover a wallet** picker (the demo injects one simulated wallet).
+2. Click **Connect wallet**.
+3. Click **Create TodoList** (if no active factory exists).
+4. Add a todo and approve the request in the wallet pane.
+5. Observe the ledger update and the events in the **RPC & Events** panel.
 
 ## Verify startup success
 
@@ -70,13 +72,41 @@ yarn --cwd examples/demo-app setup
 
 ## What the panes represent
 
-- **Left pane**: the dApp UI using `@sigilry/react` hooks (`useConnect`, `useAccounts`, `useSubmitCommand`).
-- **Right pane**: an in-browser wallet simulator that queues approvals and emits provider events.
+- **Left pane**: the dApp UI, gated by a discovery `WalletPicker` and then driven by `@sigilry/react` hooks (`useConnect`, `useAccounts`, `useSubmitCommand`). The **RPC & Events** panel logs the provider's push events.
+- **Right pane**: an in-browser wallet simulator that injects `window.canton`, queues approvals, and emits provider events.
+
+## Provider discovery
+
+The dApp does not reach for `window.canton` directly. Instead it gates on discovery, mirroring the
+pattern in [`@sigilry/react`](../../packages/react/) and [Provider Discovery](../../concepts/discovery/):
+
+- `useDiscovery()` returns the wallets that announced over `canton:announceProvider`, falling back to
+  the injected `window.canton` when none have.
+- `WalletPicker` renders that list; selecting one calls `wallet.getProvider()`.
+- The chosen provider is passed to `CantonReactProvider`'s controlled `provider` prop, binding every
+  hook below it to that wallet.
+
+The demo injects a single simulated wallet, so the picker shows one entry ("Injected Canton
+Provider"). In a real deployment each installed wallet extension announces itself and the picker lists
+all of them.
+
+## Push events
+
+The wallet simulator emits the full CIP-103 push-event surface, and the **RPC & Events** panel renders
+each as it arrives:
+
+- `accountsChanged`, `statusChanged`, `txChanged` — the [CIP-103 §4.2.2](../../concepts/cip-103-conformance/) sync events.
+- `connected` — the separate login-flow event (not one of the §4.2.2 three).
+
+Most apps consume these indirectly through `useAccounts`, `useSession`, and `useConnect`; the panel
+subscribes to the raw `useCanton()` helpers (`onAccountsChanged`, `onStatusChanged`, `onTxChanged`,
+`onConnected`) purely to make the transitions visible.
 
 ## Flow walkthrough
 
-- **Connect wallet**: `useConnect` issues `request({ method: "connect" })` and loads accounts.
-- **Create todo**: `useExerciseChoice` calls `TodoList.AddItem`; the wallet pane receives an approval request.
+- **Discover wallet**: `useDiscovery` lists available wallets; selecting one binds it via `CantonReactProvider`.
+- **Connect wallet**: `useConnect` issues `request({ method: "connect" })`, the wallet emits `connected`, and accounts load.
+- **Create todo**: `useSubmitCommand` calls `TodoList.AddItem`; the wallet pane receives an approval request.
 - **Approve**: mock wallet resolves request, mock ledger applies command, provider emits `txChanged`.
 - **Refresh UI**: `useActiveContracts` picks up updated contracts and re-renders todo items.
 
@@ -95,6 +125,7 @@ yarn --cwd examples/demo-app setup
 ## Learn more
 
 - [Quick Start](../quick-start/): how to wire a provider and connect.
+- [Provider Discovery](../../concepts/discovery/): the discovery model behind `useDiscovery` and `WalletPicker`.
 - [RPC Protocol](../../concepts/rpc-protocol/): typed JSON-RPC requests and events.
 - [@sigilry/react](../../packages/react/): hook reference and usage patterns.
 

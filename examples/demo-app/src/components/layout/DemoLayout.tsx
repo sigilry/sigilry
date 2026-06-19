@@ -1,15 +1,15 @@
 import React from "react";
 
-import { WalletSimulatorProvider } from "../../providers/WalletSimulator";
+import { WalletGate } from "../dapp/WalletGate";
 import { WalletPane } from "../wallet/WalletPane";
 import { SplitPane } from "./SplitPane";
 
 interface DemoLayoutProps {
-  children: React.ReactNode;
+  // The dApp UI, rendered in the left pane behind the discovery WalletGate. The wallet-simulator
+  // pane on the right reads WalletSimulatorContext, provided above this layout in main.tsx.
+  dapp: React.ReactNode;
 }
 
-export const DemoLayout = ({ children }: DemoLayoutProps) => (
-  <WalletSimulatorProvider>
-    <SplitPane left={children} right={<WalletPane />} />
-  </WalletSimulatorProvider>
+export const DemoLayout = ({ dapp }: DemoLayoutProps) => (
+  <SplitPane left={<WalletGate>{dapp}</WalletGate>} right={<WalletPane />} />
 );

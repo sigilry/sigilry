@@ -689,3 +689,38 @@ pre {
   display: inline-block;
   max-width: 100%;
 }
+
+/* Provider discovery picker — styles the bare buttons WalletPicker (@sigilry/react) renders. */
+.wallet-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.wallet-picker button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.wallet-picker button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.wallet-picker img {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  object-fit: contain;
+  background: rgba(0, 0, 0, 0.04);
+}

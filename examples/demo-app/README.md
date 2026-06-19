@@ -21,6 +21,7 @@ If you are new to Canton, read this demo as: `DAML model -> DAR -> generated Typ
 ## What You Will Learn
 
 - How a dApp talks to a wallet via `window.canton` and typed RPC methods
+- How a dApp discovers wallets with `useDiscovery` + `WalletPicker` and binds one via a controlled provider
 - How the `@sigilry/react` hooks map to the provider flow
 - How `@sigilry/cli` generates TypeScript types from DAML DARs
 - How the demo app combines wallet approvals with a real sandbox ledger
@@ -146,11 +147,12 @@ The dApp uses generated template identifiers so UI actions map directly to DAML 
 
 ## Core Flows
 
+- The dApp gates on provider discovery: `useDiscovery` lists wallets, `WalletPicker` selects one, and the choice is bound via `CantonReactProvider`'s controlled `provider` prop.
 - Connect/disconnect toggles the mock wallet connection and updates connection status + account list.
 - Adding a todo in the dApp exercises `TodoList.AddItem` (factory) and triggers an approval request in the wallet pane.
 - Approve resolves the request, submits to the sandbox ledger, and updates the todo list.
 - Reject returns an RPC error and surfaces a user-visible error in the dApp pane (no todo added).
-- RPC log shows each request with its pending-to-result/error lifecycle.
+- The **RPC & Events** panel shows the CIP-103 push events (`accountsChanged`, `statusChanged`, `txChanged`, `connected`) as they arrive.
 
 ## Technical Behaviors
 
@@ -229,18 +231,38 @@ The React package wraps the provider with `CantonReactProvider` and exposes hook
 
 ```tsx
 // src/main.tsx
+import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { CantonReactProvider } from "@sigilry/react";
+import { CantonReactProvider, useDiscovery, WalletPicker } from "@sigilry/react";
+import type { DiscoveredWallet } from "@sigilry/react";
+import type { SpliceProvider } from "@sigilry/dapp/provider";
 
 const queryClient = new QueryClient();
+
+// Discover wallets, let the user pick one, and bind it via the controlled `provider` prop.
+// Without a `provider` prop, CantonReactProvider falls back to the injected `window.canton`.
+function WalletGate({ children }: { children: React.ReactNode }) {
+  const wallets = useDiscovery();
+  const [provider, setProvider] = useState<SpliceProvider | null>(null);
+
+  if (!provider) {
+    return (
+      <WalletPicker
+        wallets={wallets}
+        onSelect={(w: DiscoveredWallet) => setProvider(w.getProvider())}
+      />
+    );
+  }
+
+  return <CantonReactProvider provider={provider}>{children}</CantonReactProvider>;
+}
 
 export function AppRoot() {
   return (
     <QueryClientProvider client={queryClient}>
-      {/* CantonReactProvider reads window.canton at render time */}
-      <CantonReactProvider>
+      <WalletGate>
         <App />
-      </CantonReactProvider>
+      </WalletGate>
     </QueryClientProvider>
   );
 }
@@ -378,6 +400,7 @@ Key takeaways:
 Files to explore:
 
 - `examples/demo-app/src/providers/MockProvider.tsx` — wallet provider wired to approvals + sandbox calls
+- `examples/demo-app/src/providers/demoWalletServer.ts` — announces the demo wallet and serves it over the window transport, exactly like a real extension's content script
 - `examples/demo-app/src/lib/ledger-http.ts` — HTTP adapter for `ledgerApi` and command submission
 - `examples/demo-app/src/providers/WalletSimulator.tsx` — keypair creation and approval queue
 - `examples/demo-app/src/components/dapp/` — hook usage in the dApp pane
@@ -391,6 +414,7 @@ To make the first SDK example approachable:
 - Approval flows are visible, so you can see `prepareExecuteAndWait` in action.
 - The provider still uses the **real** `@sigilry/dapp` request types and events.
 - Ledger reads/writes execute against a real local DAML sandbox.
+- The mock announces itself over `canton:announceProvider` (backed by an in-page transport server in `demoWalletServer.ts`), so it appears in `WalletPicker` as "Sigilry Demo Wallet" **alongside** any real installed wallet — demonstrating true multi-wallet discovery rather than just the single injected `window.canton` fallback. Because the dApp then talks to it over the same postMessage transport a real extension uses, approval-gated calls inherit the SDK's 30s request timeout.
 
 ## Examples Gallery
 

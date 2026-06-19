@@ -275,7 +275,3 @@ export class MockProvider extends SpliceProviderBase {
 export function installMockProvider(provider: MockProvider): void {
   (window as { canton?: MockProvider }).canton = provider;
 }
-
-export function uninstallMockProvider(): void {
-  delete (window as { canton?: MockProvider }).canton;
-}

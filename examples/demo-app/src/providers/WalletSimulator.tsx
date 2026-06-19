@@ -1,12 +1,13 @@
 /* eslint-disable no-console */
-import React, { createContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, useEffect, useMemo, useState } from "react";
 
 import { ApprovalQueue, useApprovalQueue } from "../lib/approval-queue";
 import type { WalletIdentity } from "../lib/crypto";
 import { useWalletIdentity } from "../lib/crypto";
 import { resolveUserParty } from "../lib/ledger-http";
 import { createChangeGate } from "../lib/logging";
-import { installMockProvider, MockProvider, uninstallMockProvider } from "./MockProvider";
+import { LEDGER_API_BASE_PATH, LEDGER_PARTY_ID, LEDGER_USER_ID, NETWORK_ID } from "./demoWallet";
+import type { MockProvider } from "./MockProvider";
 
 interface WalletSimulatorState {
   keypair: CryptoKeyPair | null;
@@ -20,34 +21,23 @@ interface WalletSimulatorState {
 export const WalletSimulatorContext = createContext<WalletSimulatorState | null>(null);
 
 interface WalletSimulatorProviderProps {
+  // The simulated wallet provider, constructed and installed onto window.canton in main.tsx so
+  // the dApp side can discover it. This component owns its runtime wiring (keypair, accounts,
+  // approval queue), not its lifecycle.
+  provider: MockProvider;
   children: React.ReactNode;
 }
 
-const NETWORK_ID = "canton:localnet";
-const LEDGER_PARTY_ID = import.meta.env.VITE_LEDGER_PARTY_ID ?? "Alice";
-const LEDGER_USER_ID = import.meta.env.VITE_LEDGER_USER_ID ?? "ledger-api-user";
-const LEDGER_API_BASE_PATH = import.meta.env.VITE_LEDGER_API_BASE_PATH ?? "/ledger";
 const logPartyResolutionStateChange = createChangeGate();
-const logProviderLifecycleChange = createChangeGate();
-const PROVIDER_UNINSTALL_LOG_DELAY_MS = 300;
-let pendingProviderUninstallLogTimeout: number | null = null;
 
-export const WalletSimulatorProvider = ({ children }: WalletSimulatorProviderProps) => {
+export const WalletSimulatorProvider = ({ provider, children }: WalletSimulatorProviderProps) => {
   const approvalQueue = useApprovalQueue();
   const [keypair, setKeypair] = useState<CryptoKeyPair | null>(null);
   const [isGenerating, setIsGenerating] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resolvedPartyId, setResolvedPartyId] = useState<string | null>(null);
 
-  const mockProviderRef = useRef<MockProvider | null>(null);
-  if (!mockProviderRef.current) {
-    mockProviderRef.current = new MockProvider({
-      networkId: NETWORK_ID,
-      ledgerUserId: LEDGER_USER_ID,
-      ledgerApiBasePath: LEDGER_API_BASE_PATH,
-    });
-  }
-  const mockProvider = mockProviderRef.current;
+  const mockProvider = provider;
 
   const identity = useWalletIdentity(keypair);
 
@@ -181,29 +171,6 @@ export const WalletSimulatorProvider = ({ children }: WalletSimulatorProviderPro
       isActive = false;
     };
   }, []);
-
-  useEffect(() => {
-    // Mirrors a real wallet extension by injecting `window.canton`.
-    if (pendingProviderUninstallLogTimeout !== null) {
-      window.clearTimeout(pendingProviderUninstallLogTimeout);
-      pendingProviderUninstallLogTimeout = null;
-    }
-
-    installMockProvider(mockProvider);
-    if (logProviderLifecycleChange("wallet:provider-lifecycle", "installed")) {
-      console.debug("[wallet] provider installed");
-    }
-
-    return () => {
-      uninstallMockProvider();
-      pendingProviderUninstallLogTimeout = window.setTimeout(() => {
-        if (logProviderLifecycleChange("wallet:provider-lifecycle", "uninstalled")) {
-          console.debug("[wallet] provider uninstalled");
-        }
-        pendingProviderUninstallLogTimeout = null;
-      }, PROVIDER_UNINSTALL_LOG_DELAY_MS);
-    };
-  }, [mockProvider]);
 
   const value = useMemo<WalletSimulatorState>(
     () => ({
