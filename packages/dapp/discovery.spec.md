@@ -31,8 +31,10 @@ The two halves sit at different standards levels, and this spec keeps them disti
   This spec does not claim CIP-103 conformance for the discovery tier; it aims to be a faithful
   EIP-6963 analog that a future Canton discovery CIP can ratify or supersede.
 
-**Status:** Draft, pre-TDD. Authored against the wevm reference stack at
-`~/0xbigboss/wevm` (`mipd`, `viem`, `wagmi`).
+**Status:** Implemented — shipped in `@sigilry/dapp@3.1.0`. Acceptance validated by
+`packages/dapp/__tests__/discovery-{store,utils,provider}.test.ts` (part of the 104-test dapp suite)
+and the canton-monorepo discovery e2e (`apps/playwright/tests/extension/dapp-discovery.spec.ts`).
+Authored against the wevm reference stack at `~/0xbigboss/wevm` (`mipd`, `viem`, `wagmi`).
 
 ## Problem
 
@@ -310,35 +312,35 @@ The push envelope reuses the existing `SPLICE_WALLET_REQUEST` type with **`id` a
 
 ## Acceptance criteria
 
-- [ ] `announceProvider`/`requestProviders`/`createDiscoveryStore`/`createProvider` exported from a
+- [x] `announceProvider`/`requestProviders`/`createDiscoveryStore`/`createProvider` exported from a
       new `@sigilry/dapp/discovery` entry, mirroring mipd's `store`/`utils` surface.
-- [ ] Store dedupes by `info.uuid` and resolves `findProvider` by `info.rdns`.
-- [ ] The announce wire detail is **flat** `{ id, name, icon, target, rdns, uuid }`; the store
+- [x] Store dedupes by `info.uuid` and resolves `findProvider` by `info.rdns`.
+- [x] The announce wire detail is **flat** `{ id, name, icon, target, rdns, uuid }`; the store
       normalizes it into a **complete** `DiscoveredWallet.info`. A legacy detail missing `rdns`/`uuid`
       is still surfaced via a synthesized complete `info` (deterministic `target`-derived `uuid`;
       sentinel `rdns: 'canton.legacy'`), proving the additive shape is back-compat without a partial
       consumer type. Re-announce churn from a legacy webext dedupes to one entry.
-- [ ] `requestProviders` subscribes before dispatching and no-ops under SSR.
-- [ ] `createProvider(detail)` yields a `SpliceProvider` whose `.on('txChanged', …)` fires on a
+- [x] `requestProviders` subscribes before dispatching and no-ops under SSR.
+- [x] `createProvider(detail)` yields a `SpliceProvider` whose `.on('txChanged', …)` fires on a
       target-matched id-less notification, and does **not** fire on a target-mismatched one.
-- [ ] `WindowTransport` notification listener is always-on (delivers with no `submit()` in flight),
+- [x] `WindowTransport` notification listener is always-on (delivers with no `submit()` in flight),
       installed lazily on the first `onNotification` subscription, and removed on the last
       unsubscribe; provider `removeAllListeners` cascades to the transport unsubscribe (no orphaned
       `window` listener).
-- [ ] Transport-layer filtering (id-presence + target) vs provider-layer validation (event-name +
+- [x] Transport-layer filtering (id-presence + target) vs provider-layer validation (event-name +
       emit) are split per REQ-EVT-009: an id-carrying or target-mismatched frame never reaches
       `onNotification`; an unknown event-name reaches `onNotification` but is dropped before `.emit`.
-- [ ] Request path skips id-less frames (no echo); notification path ignores id-carrying frames.
-- [ ] `createDiscoveryStore()` discovers a wallet that announced _before_ the store was constructed
+- [x] Request path skips id-less frames (no echo); notification path ignores id-carrying frames.
+- [x] `createDiscoveryStore()` discovers a wallet that announced _before_ the store was constructed
       (eager construction request, REQ-DISC-005); `reset()` re-requests; `destroy()` unsubscribes.
-- [ ] With one announced provider present, the synthesized injected fallback entry is suppressed
+- [x] With one announced provider present, the synthesized injected fallback entry is suppressed
       (announce-first, REQ-DISC-007); with zero announced providers and `window.canton` present,
       exactly one `canton.injected` fallback entry is surfaced.
-- [ ] `notify('txChanged', payload, target)` emits an id-less `SPLICE_WALLET_REQUEST` whose shape
+- [x] `notify('txChanged', payload, target)` emits an id-less `SPLICE_WALLET_REQUEST` whose shape
       is shape-compatible with merged `#1814` (asserted against a checked-in `#1814` fixture).
-- [ ] Injected fallback: with only `window.canton` present, discovery surfaces one
+- [x] Injected fallback: with only `window.canton` present, discovery surfaces one
       `DiscoveredWallet` (`rdns: 'canton.injected'`); with both, the announced entry wins.
-- [ ] `WindowEventMap` augmented; no `any` on the discovery event types.
+- [x] `WindowEventMap` augmented; no `any` on the discovery event types.
 
 ## Open items
 

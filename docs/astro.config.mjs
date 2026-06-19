@@ -160,6 +160,7 @@ function App() {
           items: [
             { label: "Architecture", slug: "concepts/architecture" },
             { label: "CIP-103 Conformance", slug: "concepts/cip-103-conformance" },
+            { label: "Provider Discovery", slug: "concepts/discovery" },
             { label: "Transports", slug: "concepts/transports" },
             { label: "RPC Protocol", slug: "concepts/rpc-protocol" },
           ],
@@ -169,6 +170,7 @@ function App() {
           items: [
             { label: "Overview & release cadence", slug: "migrations" },
             { label: "1.x → 2.0", slug: "migrations/v1-to-v2" },
+            { label: "2.x → 3.0", slug: "migrations/v2-to-v3" },
           ],
         },
         typeDocSidebarGroup,

@@ -176,6 +176,47 @@ Consumers wanting to request a signature must drop to
 - [ ] `@sigilry/react` SPEC lists `REQ-REACT-SIGN-001..005`.
 - [ ] Changeset under `.changeset/use-sign-message.md` records the minor bump.
 
+## Provider Discovery & Push-Event Subscriptions
+
+### Problem
+
+`CantonReactProvider` historically bound to the single injected `window.canton`. Pages with more than
+one Canton wallet need a way to enumerate providers and let the user choose, and consumers need a
+React-idiomatic way to observe the CIP-103 push events the provider emits (`statusChanged`, a §4.2.2
+sync event, and `connected`, the login-flow event). The discovery substrate (`canton:announceProvider` handshake, normalization, store)
+lives in `@sigilry/dapp/discovery` — see [`../dapp/discovery.spec.md`](../dapp/discovery.spec.md);
+this section specs the React tier built on it.
+
+### Requirements
+
+| ID                 | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                       | Risk       |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| REQ-REACT-DISC-001 | `useDiscovery(): readonly DiscoveredWallet[]` subscribes to a process-global `DiscoveryStore` (from `@sigilry/dapp/discovery`) via `useSyncExternalStore`. The server snapshot is the empty array (SSR-safe). Snapshots are referentially stable while the provider set is unchanged, compared by `info.uuid`.                                                                                                                    | Public API |
+| REQ-REACT-DISC-002 | `WalletPicker(props: WalletPickerProps)` renders one selectable control per discovered wallet (icon + name), calls `onSelect(wallet)` on activation, renders `emptyState` when `wallets` is empty, and forwards standard container HTML attributes. It is an unstyled primitive, not a themed component.                                                                                                                          | Public API |
+| REQ-REACT-DISC-003 | `CantonReactProvider` accepts an optional controlled `provider?: SpliceProvider \| null`. When non-null, the provider tree binds to that instance (the discovery → pick → bind flow). When `null`/absent, it falls back to the injected `window.canton` probe — today's single-wallet behavior, unchanged.                                                                                                                        | Public API |
+| REQ-REACT-DISC-004 | `useCanton()` exposes `onStatusChanged(handler: (e: StatusChangedEvent) => void) => () => void` and `onConnected(handler: (e: ConnectedEvent) => void) => () => void`. `onStatusChanged` delivers the CIP-103 §4.2.2 `statusChanged` event; `onConnected` delivers the CIP-103 `connected` login-flow event (not part of the §4.2.2 three). Semantics mirror the existing `onTxChanged` / `onAccountsChanged` registration hooks. | Public API |
+| REQ-REACT-DISC-005 | The discovery surface is additive. `@sigilry/react` re-exports `DiscoveredWallet` and `SpliceProviderInfo` from `@sigilry/dapp/discovery` for consumer typing. No existing member of the public surface changes signature or runtime semantics.                                                                                                                                                                                   | Public API |
+
+### Invariants
+
+- **INV-REACT-DISC-1**: `useDiscovery()` never throws during SSR or before any provider announces; it returns `[]` until announcements arrive.
+- **INV-REACT-DISC-2**: Changing the controlled `provider` re-binds hooks to the new provider's session and event channel and tears down the prior provider's listeners — no leaked `window` listeners and no cross-delivery of events between providers.
+- **INV-REACT-DISC-3**: A handler registered via `onStatusChanged` / `onConnected` is invoked for every matching push event while the provider is ready, and the returned function unsubscribes it.
+
+### Non-Goals
+
+- The discovery protocol, announcement normalization, `rdns`/`uuid` identity, and fallback semantics (owned by `@sigilry/dapp/discovery`).
+- Styling or layout of the wallet selection UI beyond the minimal `WalletPicker` primitive.
+- Changing the `ConnectionState` discriminated union or the `accountsChanged`-first bootstrap (see "Connection State Bootstrap" above).
+
+### Acceptance Criteria
+
+- [x] `useDiscovery`, `WalletPicker`, `WalletPickerProps` exported from `src/index.ts`; `DiscoveredWallet` + `SpliceProviderInfo` re-exported from `@sigilry/dapp/discovery`.
+- [x] `CantonReactProvider` accepts the controlled `provider` prop with injected-fallback default.
+- [x] `useCanton()` exposes `onStatusChanged` and `onConnected`.
+- [x] End-to-end discovery verified against a published build: `canton-monorepo/apps/playwright/tests/extension/dapp-discovery.spec.ts` (discovers by `rdns` via the SDK and uses the discovered provider).
+- [x] Shipped in `@sigilry/dapp@3.1.0` / `@sigilry/react@3.1.0` (republished `@sigilry/react@3.1.1`).
+
 ## Related Specs
 
 - `SPEC.md`

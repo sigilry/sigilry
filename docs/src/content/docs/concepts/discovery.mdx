@@ -1,0 +1,169 @@
+---
+title: Provider Discovery
+description: How dApps discover Send Connect and other Canton wallet providers, and how a discovered provider delivers CIP-103 push events.
+---
+
+Provider discovery lets a dApp enumerate the Canton wallet providers available in the page and
+let the user pick one — instead of assuming a single injected `window.canton`. It is sigilry's
+answer to the multi-wallet problem, modeled on [EIP-6963](https://eips.ethereum.org/EIPS/eip-6963)
+(multi-injected provider discovery) and adapted to Canton's `window.canton` provider shape.
+
+:::note[Discovery is a sigilry extension, not CIP-103]
+[CIP-103](/concepts/cip-103-conformance/) standardizes the provider _object_ (`window.canton`)
+and the JSON-RPC methods/events on it. It does **not** specify how a dApp finds providers when
+more than one is present. Discovery (`canton:announceProvider` / `canton:requestProvider`) is a
+sigilry convention layered on top. The **push events** those providers deliver, by contrast, _are_
+CIP-103 — the §4.2.2 sync events (`accountsChanged`, `statusChanged`, `txChanged`) plus the
+`connected` login event. Discovery and the event channel meet at the provider object.
+:::
+
+## The handshake
+
+Discovery is a symmetric pair of `window` `CustomEvent`s, exactly like EIP-6963:
+
+1. A wallet (browser extension) **announces** itself by dispatching `canton:announceProvider`
+   carrying its detail.
+2. A dApp **requests** providers by dispatching `canton:requestProvider`; every wallet listening
+   re-announces in response.
+
+Because either side may load first, both events are always live: the dApp announces a request on
+mount, and wallets also announce eagerly on injection. The dApp accumulates whatever arrives.
+
+```ts
+import { requestProviders } from "@sigilry/dapp/discovery";
+
+// Listen for announcements and trigger a request for any wallet already present.
+const unsubscribe = requestProviders((detail) => {
+  console.log("announced:", detail.rdns, detail.name);
+});
+
+// Later, when the picker unmounts:
+unsubscribe?.();
+```
+
+## What a wallet announces vs. what a dApp sees
+
+A wallet announces a **flat detail** — `SpliceAnnounceDetail`:
+
+```ts
+type SpliceAnnounceDetail = {
+  id: string; // provider id (e.g. the extension id)
+  name: string; // human label, e.g. "Send Connect"
+  icon: `data:image/${string}`; // inline icon
+  target: string; // the postMessage target the provider listens on
+  rdns: string; // reverse-DNS identity, e.g. "it.send.connect"
+  uuid: string; // stable per-announcement id
+};
+```
+
+`rdns` and `uuid` are **required** on the published type — a wallet author must supply both. A
+pre-discovery wallet that announces without them is normalized at the store boundary instead (see
+[Fallback semantics](#fallback-semantics-announce-first)), not through the public type.
+
+The discovery store **normalizes** each detail on arrival into a `SpliceProviderInfo` and pairs it
+with a lazy provider factory — a `DiscoveredWallet`:
+
+```ts
+type SpliceProviderInfo = {
+  uuid: string;
+  rdns: string;
+  name: string;
+  icon: `data:image/${string}`;
+};
+type DiscoveredWallet = { info: SpliceProviderInfo; getProvider(): SpliceProvider };
+```
+
+`info.rdns` is the **lookup** key — `store.findProvider({ rdns })` resolves a wallet by it. The store
+**dedupes announcements by `info.uuid`**, not by `rdns`: two entries that share an `rdns` but differ
+in `uuid` can coexist unless a higher tier coalesces them. Well-known `rdns` values:
+
+| `rdns`            | Meaning                                                                      |
+| ----------------- | ---------------------------------------------------------------------------- |
+| `it.send.connect` | Send Connect (the reference wallet extension).                               |
+| `canton.injected` | The legacy `window.canton` exposed as a discovered wallet (fallback, below). |
+| `canton.legacy`   | A pre-discovery wallet that announced without `rdns`/`uuid`; normalized.     |
+
+## Using the store directly
+
+For non-React consumers, drive discovery through the store:
+
+```ts
+import { createDiscoveryStore } from "@sigilry/dapp/discovery";
+
+const store = createDiscoveryStore();
+
+// React to the live provider set; `emitImmediately` fires once with the current snapshot.
+const unsubscribe = store.subscribe(
+  (wallets, meta) => {
+    render(wallets); // wallets: readonly DiscoveredWallet[]
+    console.log(meta?.added, meta?.removed);
+  },
+  { emitImmediately: true },
+);
+
+// Look one up by identity, then build a live provider from it.
+const wallet = store.findProvider({ rdns: "it.send.connect" });
+const provider = wallet?.getProvider(); // a SpliceProvider bound to that target
+
+// Teardown removes the window listeners.
+store.destroy();
+```
+
+`getProvider()` is `createProvider(detail)` under the hood: it constructs a `SpliceProvider` whose
+transport is bound to the announced `target`, so calls and events route to that specific wallet.
+
+## Fallback semantics (announce-first)
+
+Discovery is **announce-first**, so it degrades cleanly for pages with a single legacy wallet:
+
+- If **any** provider announces, the store reflects exactly the announced set.
+- If **no** provider announces but `window.canton` is present, the store exposes it as a single
+  `DiscoveredWallet` with `rdns: "canton.injected"` — so a dApp written against discovery still
+  finds the injected wallet with no special-casing.
+- A wallet that announces without `rdns`/`uuid` (a pre-discovery build) is normalized to
+  `rdns: "canton.legacy"` with a deterministic `uuid` derived from its `target`, so it stays
+  discoverable and dedupes stably.
+
+This is why a dApp can adopt discovery unconditionally: the single-wallet and zero-discovery cases
+both resolve to a usable provider.
+
+## Discovered providers deliver push events
+
+A provider obtained from discovery is wired for the CIP-103 **push events** out of the box.
+`SpliceProviderBase` auto-attaches the transport's inbound notification listener to its emitter, so
+events arrive through the standard `.on()` API. The CIP-103 §4.2.2 sync event set is
+`accountsChanged`, `statusChanged`, and `txChanged`; `connected` is an additional CIP-103 login-flow
+event (not one of the §4.2.2 three) that the same channel delivers:
+
+```ts
+const provider = store.findProvider({ rdns: "it.send.connect" })?.getProvider();
+
+provider?.on("statusChanged", (status) => {
+  /* §4.2.2 ongoing status change */
+});
+provider?.on("accountsChanged", (accounts) => {
+  /* §4.2.2 active-account / session change */
+});
+provider?.on("connected", (status) => {
+  /* login-flow completion (login event, not §4.2.2) */
+});
+```
+
+Push frames are delivered over the same transport as requests, disambiguated by the JSON-RPC
+`id`: a request carries an `id`, a notification does not. Frames whose `target` does not match the
+discovered provider's target are dropped, so a page with multiple wallets never cross-delivers
+events. See [CIP-103 Conformance](/concepts/cip-103-conformance/) for the normative event semantics.
+
+## In React
+
+`@sigilry/react` wraps all of the above: [`useDiscovery()`](/packages/react/#provider-discovery)
+returns the live `DiscoveredWallet[]`, `WalletPicker` renders the selection UI, and passing the
+chosen provider to `CantonReactProvider` via its controlled `provider` prop binds the rest of the
+hooks to that wallet. Push events surface as `onStatusChanged` / `onConnected` /
+`onAccountsChanged` subscriptions on `useCanton()`.
+
+## See also
+
+- [`@sigilry/dapp`](/packages/dapp/) — the discovery subpath and provider primitives.
+- [`@sigilry/react`](/packages/react/) — `useDiscovery`, `WalletPicker`, controlled provider.
+- [CIP-103 Conformance](/concepts/cip-103-conformance/) — the §4.2.2 push-event contract.

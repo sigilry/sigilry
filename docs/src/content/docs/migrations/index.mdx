@@ -3,33 +3,29 @@ title: Migrations
 description: Release cadence, versioning policy, and per-version migration guides for Sigilry packages.
 ---
 
-Sigilry's dApp RPC contract is still evolving alongside [CIP-0103](https://github.com/hyperledger-labs/splice-wallet-kernel) and downstream implementations. This section tracks breaking changes and gives consumers a concrete migration path per release line.
+Sigilry's dApp RPC contract evolves alongside [CIP-0103](https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md) and downstream implementations. This section tracks breaking changes and gives consumers a concrete migration path per release line.
 
 ## Release cadence
 
 Each published package follows semver, but the way we cut versions differs by maturity:
 
-| Package                    | Line  | Pre-release tag                   | Stability                                                                 |
-| -------------------------- | ----- | --------------------------------- | ------------------------------------------------------------------------- |
-| `@sigilry/dapp`            | `2.x` | `2.0.0-next.N` on `next` dist-tag | **Pre-stable** — breaking changes expected until the RPC contract settles |
-| `@sigilry/react`           | `2.x` | `2.0.0-next.N` on `next` dist-tag | **Pre-stable** — tracks `@sigilry/dapp`                                   |
-| `@sigilry/canton-json-api` | `1.x` | —                                 | Stable on wire shape; new endpoints are additive                          |
-| `@sigilry/cli`             | `0.x` | —                                 | Pre-1.0; breaking changes bump `0.MINOR`                                  |
-| `@sigilry/splice-dars`     | `0.x` | —                                 | Tracks a vendored Splice release; bumps with upstream                     |
+| Package                    | Line  | dist-tag | Stability                                                                 |
+| -------------------------- | ----- | -------- | ------------------------------------------------------------------------- |
+| `@sigilry/dapp`            | `3.x` | `latest` | **Stable** — additive changes are minors; breaking changes bump the major |
+| `@sigilry/react`           | `3.x` | `latest` | **Stable** — tracks `@sigilry/dapp` (majors move together)                |
+| `@sigilry/canton-json-api` | `1.x` | `latest` | Stable on wire shape; new endpoints are additive                          |
+| `@sigilry/cli`             | `0.x` | `latest` | Pre-1.0; breaking changes bump `0.MINOR`                                  |
+| `@sigilry/splice-dars`     | `0.x` | `latest` | Tracks a vendored Splice release; bumps with upstream                     |
 
-### Pre-stable pre-release policy (`@sigilry/dapp`, `@sigilry/react`)
+### Versioning policy (`@sigilry/dapp`, `@sigilry/react`)
 
-While the `2.x` line is pre-stable we publish to the `next` dist-tag rather than `latest`. Install with an explicit version:
+`@sigilry/dapp` and `@sigilry/react` ship on the `latest` dist-tag and move together — a `@sigilry/dapp` major is matched by a `@sigilry/react` major. Install the stable line directly:
 
 ```bash
-# Pin to a specific pre-release
-yarn add @sigilry/dapp@2.0.0-next.3
-
-# Or track the rolling next tag (expect breaks, re-read the migration guide on bumps)
-yarn add @sigilry/dapp@next
+yarn add @sigilry/dapp @sigilry/react
 ```
 
-A break within the `2.0.0-next.*` series increments `N`; it does **not** move to `2.0.1-next` or `2.1.0-next`. When the surface stabilizes we promote the current pre-release to `2.0.0` on `latest`; from that point `2.0.x` is patch-only and the next break cuts `3.0.0-next.0`.
+The `next` dist-tag carries the frozen `2.0.0-next.*` pre-release line from early development and is **no longer updated**; all new work lands on `latest`. Within a stable major, minors are additive (new hooks, exports, subpaths, optional props) and patches are fixes; the next breaking change cuts the following major.
 
 ### When to expect a break
 
@@ -47,6 +43,7 @@ A break within the `2.0.0-next.*` series increments `N`; it does **not** move to
 Start at the guide for your current version and apply each subsequent guide in order.
 
 - [`1.x → 2.0`](./v1-to-v2/) — CIP-0103 alignment, EIP-6963-style discovery, nested `StatusEvent`, `ConnectResult`, `isConnected`, `ledgerApi` contract rewrite, command-atom payloads.
+- [`2.x → 3.0`](./v2-to-v3/) — `latest` promotion off the `next` pre-release line, the `statusChanged`/`connected` push events on the provider, the `@sigilry/dapp/discovery` subpath, and `@sigilry/react` discovery hooks + controlled provider.
 
 ## Canton-Send specific notes
 

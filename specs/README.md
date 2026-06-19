@@ -24,6 +24,7 @@ This directory contains technical specs and design docs. Use this index to track
 ### Package/App Sub-Specs
 
 - `../packages/dapp/SPEC.md`
+- `../packages/dapp/discovery.spec.md` — provider discovery + push-event channel
 - `../packages/react/SPEC.md`
 - `../packages/cli/SPEC.md`
 - `../packages/canton-json-api/SPEC.md`
@@ -38,17 +39,18 @@ This directory contains technical specs and design docs. Use this index to track
 
 ## Spec Statuses
 
-| Spec                        | Status      | Notes                            |
-| --------------------------- | ----------- | -------------------------------- |
-| `relay-protocol.spec.md`    | Draft       | SRP master spec (in progress)    |
-| `srp-crypto.spec.md`        | Placeholder | Needs crypto/envelope definition |
-| `srp-permissions.spec.md`   | Placeholder | Needs scope/constraints policy   |
-| `srp-relay-service.spec.md` | Placeholder | Needs relay service behavior     |
-| `srp-sdk.spec.md`           | Placeholder | Needs SDK surface definition     |
-| `srp-wallet-ui.spec.md`     | Placeholder | Needs wallet UI flows            |
-| `srp-cli.spec.md`           | Placeholder | Needs CLI pairing flow           |
-| `srp-webrtc.spec.md`        | Placeholder | Optional phase 2                 |
-| `ci-cd.spec.md`             | Draft       | CI/CD pipeline spec              |
+| Spec                                 | Status      | Notes                                                              |
+| ------------------------------------ | ----------- | ------------------------------------------------------------------ |
+| `relay-protocol.spec.md`             | Draft       | SRP master spec (in progress)                                      |
+| `srp-crypto.spec.md`                 | Placeholder | Needs crypto/envelope definition                                   |
+| `srp-permissions.spec.md`            | Placeholder | Needs scope/constraints policy                                     |
+| `srp-relay-service.spec.md`          | Placeholder | Needs relay service behavior                                       |
+| `srp-sdk.spec.md`                    | Placeholder | Needs SDK surface definition                                       |
+| `srp-wallet-ui.spec.md`              | Placeholder | Needs wallet UI flows                                              |
+| `srp-cli.spec.md`                    | Placeholder | Needs CLI pairing flow                                             |
+| `srp-webrtc.spec.md`                 | Placeholder | Optional phase 2                                                   |
+| `ci-cd.spec.md`                      | Draft       | CI/CD pipeline spec                                                |
+| `../packages/dapp/discovery.spec.md` | Implemented | Shipped in `@sigilry/dapp@3.1.0` (discovery subpath + push events) |
 
 ## SRP Sub-Specs (Placeholders)
 

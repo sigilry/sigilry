@@ -30,6 +30,82 @@ export function AppRoot() {
 }
 ```
 
+## Provider discovery
+
+When multiple Canton wallets may be installed, let the user pick one. `useDiscovery()` returns the live list of discovered wallets; render them with `WalletPicker`; pass the selected provider to `CantonReactProvider` via its controlled `provider` prop. See [Provider Discovery](/concepts/discovery/) for the underlying model.
+
+```tsx
+import { useState } from "react";
+import {
+  CantonReactProvider,
+  useDiscovery,
+  WalletPicker,
+  type DiscoveredWallet,
+} from "@sigilry/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { SpliceProvider } from "@sigilry/dapp";
+
+const queryClient = new QueryClient();
+
+function WalletGate({ children }: { children: React.ReactNode }) {
+  const wallets = useDiscovery();
+  const [provider, setProvider] = useState<SpliceProvider | null>(null);
+
+  if (!provider) {
+    return (
+      <WalletPicker
+        wallets={wallets}
+        onSelect={(w: DiscoveredWallet) => setProvider(w.getProvider())}
+        emptyState={<p>No Canton wallet detected.</p>}
+      />
+    );
+  }
+
+  // The controlled `provider` prop binds every hook below to the chosen wallet.
+  return <CantonReactProvider provider={provider}>{children}</CantonReactProvider>;
+}
+
+export function AppRoot() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <WalletGate>
+        <App />
+      </WalletGate>
+    </QueryClientProvider>
+  );
+}
+```
+
+Without a `provider` prop, `CantonReactProvider` falls back to the injected `window.canton` (the single-wallet path), so adopting discovery is opt-in per consumer.
+
+## Push event subscriptions
+
+`useCanton()` exposes subscription helpers for the CIP-103 push events — `onAccountsChanged` and `onStatusChanged` are the §4.2.2 sync events; `onConnected` is the login-flow event. Each returns an unsubscribe function and is safe to use inside an effect.
+
+```tsx
+import { useEffect } from "react";
+import { useCanton } from "@sigilry/react";
+
+export function StatusWatcher() {
+  const { onStatusChanged, onConnected, onAccountsChanged } = useCanton();
+
+  useEffect(() => {
+    const offStatus = onStatusChanged((status) => console.log("status", status));
+    const offConnected = onConnected((status) => console.log("connected", status));
+    const offAccounts = onAccountsChanged((accounts) => console.log("accounts", accounts));
+    return () => {
+      offStatus();
+      offConnected();
+      offAccounts();
+    };
+  }, [onStatusChanged, onConnected, onAccountsChanged]);
+
+  return null;
+}
+```
+
+Most apps don't need these directly — `useAccounts`, `useSession`, and `useConnect` already react to the same events internally. Reach for the raw subscriptions to observe transitions, e.g. log "session expired" when `onAccountsChanged` fires with an empty array.
+
 ## Connect and read accounts
 
 ```tsx
@@ -118,6 +194,7 @@ export function SessionBadge() {
 - `useLedgerApi`, `useLedgerEnd`, `useLedgerUpdates`
 - `useContractStream`, `useActiveContracts`, `useExerciseChoice`, `useSubmitCommand`
 - `useSession`, `parseJwt`
+- `useDiscovery`, `WalletPicker` (+ `DiscoveredWallet`, `SpliceProviderInfo` types)
 
 ## Connection state
 

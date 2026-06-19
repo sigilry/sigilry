@@ -21,6 +21,7 @@ This is the top-level specification entrypoint for the monorepo.
 ### Package Sub-Specs
 
 - `packages/dapp/SPEC.md`
+- `packages/dapp/discovery.spec.md` — provider discovery (`canton:announceProvider`) + push-event channel
 - `packages/react/SPEC.md`
 - `packages/cli/SPEC.md`
 - `packages/canton-json-api/SPEC.md`

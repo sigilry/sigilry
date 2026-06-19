@@ -107,6 +107,72 @@ window.addEventListener("message", async (event) => {
 });
 ```
 
+## Provider discovery
+
+When more than one Canton wallet may be present, dApps should discover providers instead of reaching for `window.canton` directly. The discovery primitives live on the `@sigilry/dapp/discovery` subpath — they are intentionally **not** re-exported from the package root. See [Provider Discovery](/concepts/discovery/) for the model and fallback semantics.
+
+```ts
+import { createDiscoveryStore } from "@sigilry/dapp/discovery";
+
+const store = createDiscoveryStore();
+
+const unsubscribe = store.subscribe(
+  (wallets) => {
+    // wallets: readonly DiscoveredWallet[]
+    for (const w of wallets) console.log(w.info.rdns, w.info.name);
+  },
+  { emitImmediately: true },
+);
+
+// Build a live provider bound to a chosen wallet's transport target.
+const provider = store.findProvider({ rdns: "it.send.connect" })?.getProvider();
+
+// Teardown removes the window listeners.
+store.destroy();
+```
+
+A wallet extension announces itself instead:
+
+```ts
+import { announceProvider } from "@sigilry/dapp/discovery";
+
+announceProvider({
+  id: "send-extension",
+  name: "Send Connect",
+  icon: "data:image/svg+xml;base64,...",
+  target: "send-connect",
+  rdns: "it.send.connect",
+  uuid: crypto.randomUUID(),
+});
+```
+
+Discovery subpath exports: `requestProviders`, `announceProvider`, `createDiscoveryStore`, `createProvider`, and the `DiscoveredWallet`, `SpliceProviderInfo`, `SpliceAnnounceDetail`, and `DiscoveryStore` types.
+
+## Push events
+
+A `SpliceProvider` delivers the CIP-103 push events through the EIP-1193-style `.on()` API — the §4.2.2 sync events (`accountsChanged`, `statusChanged`, `txChanged`) plus the `connected` login event. `WindowTransport` carries notifications inbound on the same channel as requests (a notification is an id-less frame; the JSON-RPC `id` is the direction discriminant), and `SpliceProviderBase` auto-wires them to the provider's emitter — so a provider from `createProvider` (or the injected `window.canton`) emits with no extra setup.
+
+```ts
+const onStatus = (status) => {
+  /* ongoing status changes: network, session, disconnect */
+};
+provider.on("statusChanged", onStatus);
+provider.on("connected", (status) => {
+  /* login-flow completion (login event, not §4.2.2) */
+});
+provider.on("accountsChanged", (accounts) => {
+  /* active account / session changes */
+});
+provider.on("txChanged", (tx) => {
+  /* transaction updates */
+});
+
+// Unsubscribe:
+provider.removeListener("statusChanged", onStatus);
+```
+
+On the wallet (server) side, emit notifications with `notify(event, payload, target?)` on the transport. Frames whose `target` does not match a provider's configured target are filtered out, so multi-wallet pages never cross-deliver events. See [CIP-103 Conformance](/concepts/cip-103-conformance/) for the normative event semantics.
+
 ## Key exports
 
 - `CANTON_DAPP_API_VERSION`
@@ -116,6 +182,7 @@ window.addEventListener("message", async (event) => {
 - `WalletEvent`, `isSpliceMessage`, `isSpliceMessageEvent`
 - `jsonRpcRequest`, `jsonRpcResponse`
 - `RpcErrorCode`, `rpcError`, `RpcClientError`
+- Discovery (subpath `@sigilry/dapp/discovery`): `requestProviders`, `announceProvider`, `createDiscoveryStore`, `createProvider`
 
 ## Generated schemas
 

@@ -24,7 +24,7 @@ extensions over JSON-RPC. It specifies:
 - The full set of dApp-callable JSON-RPC methods (`status`, `connect`, `disconnect`, `isConnected`,
   `listAccounts`, `getPrimaryAccount`, `getActiveNetwork`, `prepareExecute`, `prepareExecuteAndWait`,
   `signMessage`, `ledgerApi`).
-- The full CIP-103 §4.2.2 event surface (`accountsChanged`, `txChanged`, `statusChanged`, `connected`).
+- The CIP-103 §4.2.2 sync event set (`accountsChanged`, `statusChanged`, `txChanged`) plus the `connected` login-flow event.
 - Error code allocations adopted from EIP-1193 (provider errors, 4001/4100/4200/4900/4901) and EIP-1474
   (server errors, -32000..-32099).
 - The rule that the OpenRPC JSON in
@@ -70,8 +70,9 @@ The OpenRPC source of truth for this table is `packages/dapp/api-specs/openrpc-d
 ## Provider object shape
 
 CIP-103 specifies the dApp-facing provider in the EIP-1193 object shape: a `request` method for
-JSON-RPC calls, plus an `on` / `removeListener` event API for the §4.2.2 push events
-(`accountsChanged`, `txChanged`, `statusChanged`, `connected`). Sigilry implements this contract
+JSON-RPC calls, plus an `on` / `removeListener` event API for the CIP-103 push events — the §4.2.2
+sync events (`accountsChanged`, `statusChanged`, `txChanged`) plus the `connected` login-flow event.
+Sigilry implements this contract
 through the [`SpliceProvider`](../../api-reference/dapp/src/interfaces/spliceprovider/) interface in
 `@sigilry/dapp` and exposes it at `window.canton`.
 

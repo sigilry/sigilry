@@ -52,7 +52,7 @@ Event methods are defined in the OpenRPC spec but delivered as provider events:
 - `accountsChanged`
 - `txChanged`
 - `statusChanged` — CIP-103 §4.2.2 provider status transitions; disconnects route through here per §4.2.2:216
-- `connected` — CIP-103 §4.2.2 login-flow completion; identical payload to `statusChanged`
+- `connected` — CIP-103 login-flow completion event (not one of the §4.2.2 three); identical payload to `statusChanged`
 
 ## Error handling
 

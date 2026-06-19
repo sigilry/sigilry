@@ -1,0 +1,91 @@
+---
+title: 2.x → 3.0
+description: Moving from the @sigilry/dapp / @sigilry/react 2.x pre-release line to the stable 3.x line — push events, discovery, and the one breaking change for wallet implementers.
+---
+
+The `3.0` line promotes `@sigilry/dapp` and `@sigilry/react` off the `next` pre-release tag onto the
+stable `latest` line, completes the CIP-103 §4.2.2 push-event surface, and (in `3.1`) adds provider
+discovery. **For most dApp consumers, 2 → 3 is additive** — the one hard break only affects code that
+_subclasses_ `SpliceProviderBase` or constructs an object-literal `CantonContextValue`.
+
+## Install
+
+The 2.x series lived on the `next` dist-tag (`2.0.0-next.*`). The 3.x line is on `latest`:
+
+```bash
+yarn add @sigilry/dapp@latest @sigilry/react@latest
+```
+
+:::caution[Use `@sigilry/react@>=3.1.1`]
+`@sigilry/react@3.1.0` shipped with an unresolved `workspace:^` dependency on `@sigilry/dapp` and is
+uninstallable. Use `3.1.1` or later — it pins the dependency to a real range. `@sigilry/dapp@3.1.0`
+is unaffected.
+:::
+
+## Breaking changes
+
+### `SpliceProviderBase` — `setConnected()` removed (wallet implementers)
+
+If you subclass `SpliceProviderBase` to build a provider/wallet, the `protected setConnected(boolean)`
+helper is gone. It emitted bare `"connect"` / `"disconnect"` event names with no payload, which
+predates and violates CIP-103 §4.2.2 (wrong event name, missing `StatusEvent` payload, and
+`disconnect` isn't a CIP-103 event — disconnect signals flow through `statusChanged`).
+
+Replace it with the two typed emitters, which also keep `isConnected()` in sync from
+`payload.connection.isConnected`:
+
+```ts
+// Before (2.x)
+this.setConnected(true);
+this.setConnected(false);
+
+// After (3.x)
+this.emitConnected(connectedEvent); // login-flow completion (ConnectedEvent)
+this.emitStatusChanged(statusEvent); // ongoing status, incl. disconnect (StatusChangedEvent)
+```
+
+Both payloads are `allOf StatusEvent`, so they carry the same shape as the `status` RPC result.
+
+A subscriber audit at release found **zero** external consumers of `provider.on('connect', …)` /
+`provider.on('disconnect', …)`, so dApps listening for events are unaffected — but update any custom
+provider subclass and replace `connect`/`disconnect` listeners with `connected` / `statusChanged`.
+
+### `CantonContextValue` — two new required members (mock authors)
+
+`CantonContextValue` gains two **required** members, `onStatusChanged` and `onConnected`, following
+the same `(handler) => () => void` registration pattern as the existing `onTxChanged`. This only
+breaks code that builds an object-literal implementation/mock of `CantonContextValue`; consumers of
+`useCanton()` are unaffected (they gain two methods).
+
+```ts
+// Mocks must now include:
+const ctx: CantonContextValue = {
+  /* …existing members… */
+  onStatusChanged: (handler) => () => {},
+  onConnected: (handler) => () => {},
+};
+```
+
+## New in 3.x (additive)
+
+- **Push events** (`3.0`, `@sigilry/dapp`): `statusChanged` (a CIP-103 §4.2.2 sync event) and
+  `connected` (the CIP-103 login-flow event) join the existing `accountsChanged` / `txChanged` on
+  `provider.on()`. See [CIP-103 Conformance](/concepts/cip-103-conformance/).
+- **Discovery subpath** (`3.1`, `@sigilry/dapp`): `@sigilry/dapp/discovery` exposes
+  `requestProviders`, `announceProvider`, `createDiscoveryStore`, and `createProvider`, plus inbound
+  transport notification support so discovered providers deliver push events automatically. See
+  [Provider Discovery](/concepts/discovery/).
+- **React discovery** (`3.1`, `@sigilry/react`): `useDiscovery`, `WalletPicker`, and a controlled
+  `provider` prop on `CantonReactProvider`, plus `onStatusChanged` / `onConnected` subscriptions on
+  `useCanton()`.
+
+None of these require changes to existing code — adopt them when you want multi-wallet selection or
+to observe push events directly.
+
+## Checklist
+
+- [ ] Move installs from `@next` / `2.0.0-next.*` to `@latest` (`@sigilry/react@>=3.1.1`).
+- [ ] If you subclass `SpliceProviderBase`: replace `setConnected()` with `emitConnected()` / `emitStatusChanged()`.
+- [ ] If you mock `CantonContextValue`: add `onStatusChanged` and `onConnected`.
+- [ ] Replace any `provider.on('connect'|'disconnect', …)` listeners with `connected` / `statusChanged`.
+- [ ] (Optional) Adopt discovery via `useDiscovery` + `WalletPicker` for multi-wallet support.
