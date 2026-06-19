@@ -9,5 +9,6 @@ export {
   type Listener,
   type Store,
 } from "./store.js";
+export type { TransportOptions } from "../transport/types.js";
 export type { DiscoveredWallet, SpliceAnnounceDetail, SpliceProviderInfo } from "./types.js";
 export { announceProvider, requestProviders } from "./utils.js";

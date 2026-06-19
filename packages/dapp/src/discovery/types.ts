@@ -1,4 +1,5 @@
 import type { SpliceProvider } from "../provider/interface.js";
+import type { TransportOptions } from "../transport/types.js";
 
 export type SpliceAnnounceDetail = {
   id: string;
@@ -18,5 +19,5 @@ export type SpliceProviderInfo = {
 
 export type DiscoveredWallet = {
   info: SpliceProviderInfo;
-  getProvider(): SpliceProvider;
+  getProvider(opts?: TransportOptions): SpliceProvider;
 };

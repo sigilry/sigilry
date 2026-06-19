@@ -146,7 +146,7 @@ announceProvider({
 });
 ```
 
-Discovery subpath exports: `requestProviders`, `announceProvider`, `createDiscoveryStore`, `createProvider`, and the `DiscoveredWallet`, `SpliceProviderInfo`, `SpliceAnnounceDetail`, and `DiscoveryStore` types.
+Discovery subpath exports: `requestProviders`, `announceProvider`, `createDiscoveryStore`, `createProvider`, and the `DiscoveredWallet`, `SpliceProviderInfo`, `SpliceAnnounceDetail`, `DiscoveryStore`, and `TransportOptions` types. Pass a `TransportOptions` to `wallet.getProvider(opts?)` to tune the announced wallet's transport (e.g. a longer request `timeout`).
 
 ## Push events
 
@@ -182,7 +182,7 @@ On the wallet (server) side, emit notifications with `notify(event, payload, tar
 - `WalletEvent`, `isSpliceMessage`, `isSpliceMessageEvent`
 - `jsonRpcRequest`, `jsonRpcResponse`
 - `RpcErrorCode`, `rpcError`, `RpcClientError`
-- Discovery (subpath `@sigilry/dapp/discovery`): `requestProviders`, `announceProvider`, `createDiscoveryStore`, `createProvider`
+- Discovery (subpath `@sigilry/dapp/discovery`): `requestProviders`, `announceProvider`, `createDiscoveryStore`, `createProvider`, and the `TransportOptions` type
 
 ## Generated schemas
 

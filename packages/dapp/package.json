@@ -1,6 +1,6 @@
 {
   "name": "@sigilry/dapp",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Chain/transport-agnostic dApp infrastructure - RPC client/server and transports",
   "keywords": [
     "blockchain",

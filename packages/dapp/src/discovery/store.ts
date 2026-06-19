@@ -70,7 +70,7 @@ function walletFromDetail(detail: SpliceAnnounceDetail): DiscoveredWallet {
       name: normalizedDetail.name,
       icon: normalizedDetail.icon,
     },
-    getProvider: () => createProvider(normalizedDetail),
+    getProvider: (opts) => createProvider(normalizedDetail, opts),
   };
 }
 
@@ -94,7 +94,8 @@ function injectedWallet(): DiscoveredWallet | undefined {
       name: "Injected Canton Provider",
       icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" />',
     },
-    getProvider: () => provider,
+    // The injected object is already in-page, not transport-backed; transport opts do not apply.
+    getProvider: (_opts) => provider,
   };
 }
 

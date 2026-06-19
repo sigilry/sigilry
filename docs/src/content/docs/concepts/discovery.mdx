@@ -70,7 +70,10 @@ type SpliceProviderInfo = {
   name: string;
   icon: `data:image/${string}`;
 };
-type DiscoveredWallet = { info: SpliceProviderInfo; getProvider(): SpliceProvider };
+type DiscoveredWallet = {
+  info: SpliceProviderInfo;
+  getProvider(opts?: TransportOptions): SpliceProvider;
+};
 ```
 
 `info.rdns` is the **lookup** key — `store.findProvider({ rdns })` resolves a wallet by it. The store
@@ -109,8 +112,12 @@ const provider = wallet?.getProvider(); // a SpliceProvider bound to that target
 store.destroy();
 ```
 
-`getProvider()` is `createProvider(detail)` under the hood: it constructs a `SpliceProvider` whose
-transport is bound to the announced `target`, so calls and events route to that specific wallet.
+`getProvider(opts?)` is `createProvider(detail, opts)` under the hood: it constructs a `SpliceProvider`
+whose transport is bound to the announced `target`, so calls and events route to that specific wallet.
+The optional `opts` is a `TransportOptions` — pass a longer `timeout` for approval-gated calls
+(`prepareExecuteAndWait`, `signMessage`) that a user may take longer than the default 30s to approve;
+omit it to keep the 30s default. The announced `target` is always authoritative and cannot be
+overridden through `opts`.
 
 ## Fallback semantics (announce-first)
 

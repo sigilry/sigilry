@@ -5,10 +5,22 @@ import {
   type DiscoveryStoreListener,
   type SpliceAnnounceDetail,
 } from "../src/discovery/index.js";
+import type { StatusEvent } from "../src/generated/schemas.js";
+import { WalletEvent } from "../src/messages/events.js";
 import type { SpliceProvider } from "../src/provider/interface.js";
+import { RpcErrorCode } from "../src/rpc/errors.js";
 
 class FakeDiscoveryWindow extends EventTarget {
   canton?: SpliceProvider;
+  messages: Array<{ message: unknown; targetOrigin?: string }> = [];
+
+  postMessage(message: unknown, targetOrigin?: string): void {
+    this.messages.push({ message, targetOrigin });
+  }
+
+  emitMessage(data: unknown): void {
+    this.dispatchEvent(new MessageEvent("message", { data }));
+  }
 }
 
 const injectedProvider: SpliceProvider = {
@@ -34,6 +46,19 @@ function makeDetail(overrides: Partial<SpliceAnnounceDetail> = {}): SpliceAnnoun
     rdns: "com.example.wallet-a",
     uuid: "uuid-wallet-a",
     ...overrides,
+  };
+}
+
+function statusResult(): StatusEvent {
+  return {
+    provider: {
+      id: "test-wallet",
+      providerType: "browser",
+    },
+    connection: {
+      isConnected: false,
+      isNetworkConnected: false,
+    },
   };
 }
 
@@ -173,12 +198,84 @@ describe("createDiscoveryStore", () => {
     expect(store.getProviders()).toHaveLength(1);
     expect(fallback.info.rdns).toBe("canton.injected");
     expect(fallback.getProvider()).toBe(injectedProvider);
+    expect(fallback.getProvider({ timeout: 5 })).toBe(injectedProvider);
 
     dispatchAnnouncement(makeDetail());
 
     expect(store.getProviders().map((wallet) => wallet.info.rdns)).toEqual([
       "com.example.wallet-a",
     ]);
+    store.destroy();
+  });
+
+  test("announced wallet getProvider forwards custom timeout to the transport", async () => {
+    setWindow(new FakeDiscoveryWindow());
+    const store = createDiscoveryStore();
+    dispatchAnnouncement(makeDetail({ target: "wallet-timeout" }));
+
+    const [wallet] = store.getProviders();
+    const provider = wallet.getProvider({ timeout: 5 });
+
+    await expect(provider.request({ method: "status" })).rejects.toMatchObject({
+      code: RpcErrorCode.LIMIT_EXCEEDED,
+      message: expect.stringContaining("5ms"),
+    });
+    store.destroy();
+  });
+
+  test("announced wallet getProvider keeps the default timeout when opts are omitted", async () => {
+    const win = new FakeDiscoveryWindow();
+    setWindow(win);
+    const store = createDiscoveryStore();
+    dispatchAnnouncement(makeDetail({ target: "wallet-default-timeout" }));
+
+    const [wallet] = store.getProviders();
+    const request = wallet.getProvider().request({ method: "status" });
+    const message = win.messages[0].message as { request: { id: string | number | null } };
+
+    const earlyResult = await Promise.race([
+      request.then(
+        () => "settled",
+        () => "settled",
+      ),
+      new Promise<"pending">((resolve) => setTimeout(() => resolve("pending"), 10)),
+    ]);
+
+    expect(earlyResult).toBe("pending");
+    win.emitMessage({
+      type: WalletEvent.SPLICE_WALLET_RESPONSE,
+      response: {
+        jsonrpc: "2.0",
+        id: message.request.id,
+        result: statusResult(),
+      },
+    });
+    await expect(request).resolves.toEqual(statusResult());
+    store.destroy();
+  });
+
+  test("announced wallet target overrides caller-supplied transport target", async () => {
+    const win = new FakeDiscoveryWindow();
+    setWindow(win);
+    const store = createDiscoveryStore();
+    dispatchAnnouncement(makeDetail({ target: "announced-wallet" }));
+
+    const [wallet] = store.getProviders();
+    const request = wallet.getProvider({ target: "caller-target", timeout: 100 }).request({
+      method: "status",
+    });
+    const message = win.messages[0].message as { request: { id: string | number | null } };
+
+    expect(win.messages[0].message).toMatchObject({ target: "announced-wallet" });
+    win.emitMessage({
+      type: WalletEvent.SPLICE_WALLET_RESPONSE,
+      response: {
+        jsonrpc: "2.0",
+        id: message.request.id,
+        result: statusResult(),
+      },
+    });
+    await expect(request).resolves.toEqual(statusResult());
     store.destroy();
   });
 

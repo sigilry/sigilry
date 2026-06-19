@@ -132,7 +132,7 @@ interface SpliceProviderInfo {
 // the flat wire detail into this nested shape (info bundles identity).
 interface DiscoveredWallet {
   info: SpliceProviderInfo; // normalized from the flat detail's { uuid, rdns, name, icon }
-  getProvider(): SpliceProvider; // announced → createProvider(detail); injected → window.canton
+  getProvider(opts?: TransportOptions): SpliceProvider; // announced → createProvider(detail, opts); injected → window.canton
 }
 ```
 
@@ -185,14 +185,16 @@ The push envelope reuses the existing `SPLICE_WALLET_REQUEST` type with **`id` a
   `request()` on construction `:69`, `destroy` unsubscribe `:81-85`, `reset` re-request `:94-98`).
 - **REQ-DISC-006** — `createProvider(detail: SpliceAnnounceDetail, opts?: TransportOptions): SpliceProvider`.
   THE BRIDGE: constructs a `SpliceProvider` (over `SpliceProviderBase`) backed by a
-  `WindowTransport({ target: detail.target, ...opts })` with the push-event channel
-  (`REQ-EVT-*`) wired, so `provider.on('txChanged', …)` fires. This is sigilry's substitute
-  for mipd's `detail.provider`.
+  `WindowTransport({ ...opts, target: detail.target })` with the push-event channel
+  (`REQ-EVT-*`) wired, so `provider.on('txChanged', …)` fires. The announced `detail.target`
+  is the authoritative routing key and MUST NOT be overridden by dApp-supplied opts. This is
+  sigilry's substitute for mipd's `detail.provider`.
 - **REQ-DISC-007** — injected fallback (announce-first; DISC-FID-002). Discovery normalizes both
-  sources to `DiscoveredWallet`: announced → `getProvider = () => createProvider(detail)`;
+  sources to `DiscoveredWallet`: announced → `getProvider = (opts) => createProvider(detail, opts)`;
   injected (`window.canton` present) → a synthesized `DiscoveredWallet` with
-  `info.rdns === 'canton.injected'` and `getProvider = () => window.canton`. The synthesized
-  injected entry is a **true fallback**: it is surfaced only when **no provider has announced**
+  `info.rdns === 'canton.injected'` and `getProvider = () => window.canton` (opts accepted by
+  the interface but ignored because there is no transport). The synthesized injected entry is a
+  **true fallback**: it is surfaced only when **no provider has announced**
   (the store holds zero announced details). Once any `canton:announceProvider` has been observed,
   the generic injected entry is suppressed — a wallet that both announces and injects (e.g. Send
   Connect) appears exactly once, via its announced `rdns`. This is the
@@ -209,6 +211,11 @@ The push envelope reuses the existing `SPLICE_WALLET_REQUEST` type with **`id` a
   unless a higher tier coalesces them. There is no `rdns`-dedupe of announced entries.
 - **REQ-DISC-008** — augment `WindowEventMap` with `canton:announceProvider` and
   `canton:requestProvider` (typed `CustomEvent`s). Mirrors `mipd/src/window.ts`.
+- **REQ-DISC-009** — announced-wallet `DiscoveredWallet.getProvider(opts?: TransportOptions)` accepts
+  `TransportOptions` so dApps can override `WindowTransport` request behavior such as timeout for
+  human-paced approval RPCs (issue #83). Omitting opts is unchanged and uses
+  `DEFAULT_TRANSPORT_OPTIONS` (`timeout: 30000`). The injected fallback accepts the optional
+  argument for interface compatibility but ignores it because `window.canton` is not transport-backed.
 
 ## Requirements — Push-Event Channel (`REQ-EVT-*`)
 
@@ -341,6 +348,8 @@ The push envelope reuses the existing `SPLICE_WALLET_REQUEST` type with **`id` a
 - [x] Injected fallback: with only `window.canton` present, discovery surfaces one
       `DiscoveredWallet` (`rdns: 'canton.injected'`); with both, the announced entry wins.
 - [x] `WindowEventMap` augmented; no `any` on the discovery event types.
+- [x] Announced-wallet `getProvider({ timeout })` forwards `TransportOptions` into the transport,
+      while `getProvider()` keeps the default 30s timeout and the injected fallback ignores opts.
 
 ## Open items
 

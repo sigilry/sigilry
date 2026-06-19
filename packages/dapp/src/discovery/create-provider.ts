@@ -12,7 +12,8 @@ class WindowSpliceProvider extends SpliceProviderBase {
 
   constructor(win: Window, detail: SpliceAnnounceDetail, opts: TransportOptions = {}) {
     super();
-    this.transport = new WindowTransport(win, { target: detail.target, ...opts });
+    // The announced routing key belongs to the wallet; caller opts must not retarget it.
+    this.transport = new WindowTransport(win, { ...opts, target: detail.target });
     this.attachEventTransport(this.transport);
   }
 
