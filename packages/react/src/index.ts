@@ -25,6 +25,12 @@
 // Context
 export { type CantonContextValue, CantonReactProvider, useCanton } from "./context";
 
+// WalletConnect transport (dApp-side)
+export {
+  createWalletConnectProvider,
+  type WalletConnectTransportConfig,
+} from "./walletconnect-provider";
+
 // Provider discovery
 export { WalletPicker, type WalletPickerProps, useDiscovery } from "./discovery";
 export type { DiscoveredWallet, SpliceProviderInfo } from "@sigilry/dapp/discovery";

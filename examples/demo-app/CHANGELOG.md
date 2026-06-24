@@ -1,5 +1,13 @@
 # @sigilry/demo-app
 
+## 0.0.8
+
+### Patch Changes
+
+- Updated dependencies [87bd1d4]
+  - @sigilry/dapp@3.3.0
+  - @sigilry/react@3.2.0
+
 ## 0.0.7
 
 ### Patch Changes

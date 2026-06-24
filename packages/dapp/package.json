@@ -1,6 +1,6 @@
 {
   "name": "@sigilry/dapp",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "description": "Chain/transport-agnostic dApp infrastructure - RPC client/server and transports",
   "keywords": [
     "blockchain",
@@ -77,6 +77,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@walletconnect/sign-client": "^2.23.8",
+    "@walletconnect/types": "^2.23.8",
     "zod": "^4.1.13"
   },
   "devDependencies": {

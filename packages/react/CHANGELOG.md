@@ -1,5 +1,18 @@
 # @sigilry/react
 
+## 3.2.0
+
+### Minor Changes
+
+- 87bd1d4: Add a dApp-side WalletConnect transport so sigilry dApps can connect to WalletConnect-capable Canton wallets (cross-device / no extension), alongside the existing injected provider.
+  - `@sigilry/dapp`: `WalletConnectTransport` — a `BidirectionalTransport` sibling to `WindowTransport` that marshals the typed RPC surface onto the canonical Canton WC namespace (`canton_*`) over `@walletconnect/sign-client`. No dependency on `@canton-network/dapp-sdk`. Ledger reads (`ledgerApi`) go **directly** to the wallet's ledger API via the CIP-103 `network.ledgerApi` base + session token (`${network.ledgerApi}${resource}`), not over the relay — large responses such as the active-contract set exceed the relay's per-message size limit.
+  - `@sigilry/react`: `createWalletConnectProvider` + a `walletConnect` option on `CantonReactProvider` — the same hooks drive a WalletConnect session; the pairing URI is delivered via `onUri`.
+
+### Patch Changes
+
+- Updated dependencies [87bd1d4]
+  - @sigilry/dapp@3.3.0
+
 ## 3.1.1
 
 ### Patch Changes

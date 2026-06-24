@@ -19,6 +19,10 @@ import {
   useState,
 } from "react";
 import type { Account, CantonProvider, ConnectionState, ParsedError, TxEvent } from "./types";
+import {
+  createWalletConnectProvider,
+  type WalletConnectTransportConfig,
+} from "./walletconnect-provider";
 import { parseError, parsePartyId } from "./types";
 
 type RpcMethodName = keyof RpcMethods;
@@ -187,6 +191,12 @@ export interface CantonProviderProps {
   onConnectionChange?: (state: ConnectionState) => void;
   /** Grace window for event-first bootstrap before falling back to cold status */
   initGraceMs?: number;
+  /**
+   * Connect over WalletConnect instead of the injected `window.canton` provider.
+   * When set, the same hooks drive a WC session; `connect()` opens the pairing
+   * (the URI arrives via `walletConnect.onUri` for a QR / deep-link).
+   */
+  walletConnect?: WalletConnectTransportConfig;
 }
 
 type CantonWindow = Window & {
@@ -200,8 +210,19 @@ export function CantonReactProvider({ ...props }: CantonProviderProps): React.Re
     onConnectionChange,
     onError,
     provider,
+    walletConnect,
   } = props;
   const hasControlledProvider = "provider" in props;
+  // The WalletConnect-backed provider, derived from the config. Memoized so it's
+  // stable while the config is, and null when not in WalletConnect mode — so
+  // getProvider falls back to the controlled/injected provider. Toggling
+  // walletConnect off returns the other provider, never a stale WC instance.
+  // (createWalletConnectProvider is a cheap constructor — SignClient init is
+  // deferred to connect.)
+  const wcProvider = useMemo<CantonProvider | null>(
+    () => (walletConnect ? createWalletConnectProvider(walletConnect) : null),
+    [walletConnect],
+  );
   // Core connection state using discriminated union
   const [connectionState, setConnectionState] = useState<ConnectionState>({
     status: "disconnected",
@@ -244,16 +265,21 @@ export function CantonReactProvider({ ...props }: CantonProviderProps): React.Re
     onErrorRef.current = onError;
   }, [onError]);
 
-  // Controlled selection treats null/undefined as "no wallet picked"; legacy mode still probes injection.
+  // Provider precedence: an explicitly controlled `provider` (e.g. picked via WalletPicker
+  // discovery) wins; else a WalletConnect-backed provider when `walletConnect` is set; else
+  // the injected `window.canton`. Controlled mode treats null/undefined as "no wallet picked".
   const getProvider = useCallback((): CantonProvider | null => {
     if (hasControlledProvider) {
       return provider ?? null;
+    }
+    if (wcProvider) {
+      return wcProvider;
     }
     if (typeof window === "undefined") {
       return null;
     }
     return (window as CantonWindow).canton ?? null;
-  }, [hasControlledProvider, provider]);
+  }, [hasControlledProvider, provider, wcProvider]);
 
   // RPC call helper with error parsing
   const request = useCallback(
