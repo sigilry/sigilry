@@ -34,6 +34,13 @@ const CANTON_WC_METHODS = [
 // synthesized dApp-side (`connected` on connect(), `txChanged` on prepareExecute).
 const CANTON_WC_EVENTS = ["accountsChanged", "statusChanged"];
 
+// On restore, validate a persisted session is still alive within this window. A
+// session the wallet deleted while we were away (a missed session_delete) would
+// otherwise be adopted and wedge every later request — and hang connect() on
+// "connecting" with no QR. Short: canton_status is a quick read, and this cost is
+// only paid when probing a (possibly dead) restored session.
+const RESTORE_LIVENESS_TIMEOUT_MS = 6000;
+
 /**
  * Bare sigilry RPC method → canonical `canton_*` wire method. `connect` /
  * `disconnect` / `isConnected` are session lifecycle (handled before this map),
@@ -292,12 +299,22 @@ export class WalletConnectTransport implements BidirectionalTransport {
     const existing = client.session
       .getAll()
       .find((s) => s.namespaces?.[CANTON_NAMESPACE]?.chains?.includes(this.chainId));
-    if (existing) {
-      this.session = existing;
-      this.setupSessionEvents();
+    if (!existing) return false;
+    this.session = existing;
+    this.setupSessionEvents();
+    // Validate the session is still ALIVE before trusting it. The wallet may have
+    // deleted it while we were away (we'd miss the session_delete); adopting a
+    // dead session wedges every later request AND hangs connect() on "connecting"
+    // with no QR (restore wins over establishSession). A timed canton_status
+    // confirms the wallet still answers — on timeout/failure, tear the dead
+    // session down so the caller falls back to a fresh pairing.
+    try {
+      await this.relayRequest("canton_status", {}, RESTORE_LIVENESS_TIMEOUT_MS);
       return true;
+    } catch {
+      await this.disconnect();
+      return false;
     }
-    return false;
   }
 
   /** Tear down the WC session. */
@@ -317,15 +334,37 @@ export class WalletConnectTransport implements BidirectionalTransport {
 
   // ── private ──────────────────────────────────────────────────────
 
-  private async relayRequest(method: string, params: unknown): Promise<unknown> {
+  private async relayRequest(
+    method: string,
+    params: unknown,
+    timeoutMs?: number,
+  ): Promise<unknown> {
     if (!this.signClient || !this.session) {
       throw new Error("WalletConnect session not established");
     }
-    return this.signClient.request({
+    const request = this.signClient.request({
       topic: this.session.topic,
       chainId: this.chainId,
       request: { method, params: (params as Record<string, unknown>) ?? {} },
     });
+    // Most relay requests (signMessage / prepareSignExecute) wait on user approval
+    // in the wallet and must NOT time out. Only callers that pass timeoutMs — the
+    // restore liveness probe — are bounded.
+    if (timeoutMs === undefined) return request;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        request,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`relay request '${method}' timed out after ${timeoutMs}ms`)),
+            timeoutMs,
+          );
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
 
   /** canton_status over the relay; caches the direct-read base URL + token. */

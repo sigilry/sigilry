@@ -22,6 +22,7 @@
     "check-deps": "check-dependency-version-consistency",
     "changeset": "changeset",
     "version": "changeset version",
+    "changeset:version": "changeset version && yarn install --mode=update-lockfile",
     "release": "turbo run build --filter=!@sigilry/docs --filter=!@sigilry/demo-app && changeset publish",
     "prepare": "lefthook install"
   },

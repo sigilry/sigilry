@@ -1,5 +1,12 @@
 # @sigilry/demo-app
 
+## 0.0.9
+
+### Patch Changes
+
+- Updated dependencies [2994421]
+  - @sigilry/dapp@3.3.1
+
 ## 0.0.8
 
 ### Patch Changes
