@@ -3,7 +3,7 @@ title: Verify signMessage
 description: Verify Send Connect's hex DER ECDSA P-256 signatures with WebCrypto and a base64 SPKI public key, including delegated signing keys.
 ---
 
-[CIP-0103](https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md#signmessage) defines message signing but does not fix the signature encoding or algorithm. Sigilry's current `SignMessageResult` contains a `signature` string. Choose a verifier for the selected wallet's documented format.
+[CIP-0103](https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md#signmessage) defines message signing but does not fix the signature encoding or algorithm. Sigilry's `SignMessageResult` requires a `signature` string and accepts optional signer metadata. Choose a verifier for the selected wallet's documented format.
 
 ## Send Connect browser extension format
 
@@ -19,6 +19,20 @@ Do not base64-encode, normalize, or prehash the message before verification. Web
 Send's WalletConnect `canton_signMessage` currently returns a 64-byte hex `r‖s` signature, with `fingerprint` and `publicKey`. Do not use this DER parser for that response. Send has a pending change (`ba1bc3ecd` in canton-monorepo, unreleased) to unify both transports on hex DER; this guide describes the current extension behavior. Other wallets can return different formats.
 
 The current extension signing result contains only `{ signature }` and does not provide signer metadata. Verify it with the account `publicKey` captured before signing.
+
+## Optional signer metadata
+
+Sigilry's exported `SignMessageResultSchema` and inferred `SignMessageResult` type accept the following optional fields. Some wallets, including a pending Send release, may include them; they are not yet part of CIP-0103 and are not a promise about the current Send extension response. Availability depends on the wallet version and transport. A result containing only `{ signature }` remains valid. Unknown keys and unsupported enum values are rejected.
+
+| Field                  | Meaning / accepted values                                |
+| ---------------------- | -------------------------------------------------------- |
+| `signedBy`             | Canton fingerprint (`1220…`) of the signing key          |
+| `publicKey`            | Signing key as base64 DER SubjectPublicKeyInfo (SPKI)    |
+| `signingAlgorithmSpec` | `"ed25519"` or `"ecdsa-sha256"`                          |
+| `format`               | `"concat"` (raw concatenated signature bytes) or `"der"` |
+| `encoding`             | `"base64"` or `"hex"`                                    |
+
+The example below verifies with the captured account `publicKey` by default, matching the current Send Connect extension. If another wallet documents a different signing key in the result, select that key explicitly and independently establish its authorization for the party. The verifier supports only ECDSA P-256/SHA-256, hex, and DER. If metadata declares another format, select a compatible verifier. Accepting metadata in the schema does not verify the signature, key encoding, fingerprint, or the key's authorization for a party.
 
 ## WebCrypto verifier
 
@@ -100,10 +114,19 @@ import "@sigilry/dapp/browser-globals";
 if (!window.canton) throw new Error("Connect Send Connect first");
 const account = await window.canton.request({ method: "getPrimaryAccount" });
 const message = "Example message for signature verification";
-const { signature } = await window.canton.request({
+const result = await window.canton.request({
   method: "signMessage",
   params: { message },
 });
+if (result.signingAlgorithmSpec !== undefined && result.signingAlgorithmSpec !== "ecdsa-sha256") {
+  throw new Error("This verifier requires ECDSA P-256/SHA-256");
+}
+if (result.format !== undefined && result.format !== "der") {
+  throw new Error("This verifier requires DER signatures");
+}
+if (result.encoding !== undefined && result.encoding !== "hex") {
+  throw new Error("This verifier requires hex signatures");
+}
 const current = await window.canton.request({ method: "getPrimaryAccount" });
 if (
   current.partyId !== account.partyId ||
@@ -112,7 +135,7 @@ if (
 ) {
   throw new Error("Account changed during signing; request a fresh signature");
 }
-const valid = await verifySendMessage(message, signature, account.publicKey);
+const valid = await verifySendMessage(message, result.signature, account.publicKey);
 console.log({ valid });
 ```
 

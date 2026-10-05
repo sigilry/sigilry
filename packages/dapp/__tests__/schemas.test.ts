@@ -7,12 +7,74 @@ import {
   JsCommandsSchema,
   JsPrepareSubmissionRequestSchema,
   ProviderSchema,
+  SignMessageResultSchema,
   StatusEventSchema,
   TxChangedExecutedPayloadSchema,
   WalletSchema,
 } from "../src/generated/schemas.js";
 
 describe("Generated Schemas", () => {
+  describe("SignMessageResultSchema", () => {
+    test("accepts a signature with all optional Send signer fields", () => {
+      const result = {
+        signature: "30440220abcdef",
+        signedBy: "1220abcdef",
+        publicKey: "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE",
+        signingAlgorithmSpec: "ecdsa-sha256",
+        format: "der",
+        encoding: "hex",
+      } as const;
+      expect(SignMessageResultSchema.parse(result)).toEqual(result);
+    });
+
+    test("accepts a bare signature", () => {
+      const result = { signature: "signature" };
+      expect(SignMessageResultSchema.parse(result)).toEqual(result);
+    });
+
+    test("accepts optional metadata independently and the other enum values", () => {
+      for (const metadata of [
+        { signedBy: "1220abcdef" },
+        { publicKey: "base64-spki" },
+        { signingAlgorithmSpec: "ed25519" },
+        { format: "concat" },
+        { encoding: "base64" },
+      ] as const) {
+        const result = { signature: "signature", ...metadata };
+        expect(SignMessageResultSchema.parse(result)).toEqual(result);
+      }
+    });
+
+    test("rejects unknown keys", () => {
+      expect(
+        SignMessageResultSchema.safeParse({ signature: "signature", unknown: "value" }).success,
+      ).toBe(false);
+    });
+
+    test("rejects invalid metadata enum values", () => {
+      for (const metadata of [
+        { signingAlgorithmSpec: "rsa-sha256" },
+        { format: "raw" },
+        { encoding: "utf8" },
+      ]) {
+        expect(
+          SignMessageResultSchema.safeParse({ signature: "signature", ...metadata }).success,
+        ).toBe(false);
+      }
+    });
+
+    test("requires a string signature and string signer identifiers", () => {
+      for (const result of [
+        {},
+        { signature: 123 },
+        { signature: "signature", signedBy: 123 },
+        { signature: "signature", publicKey: 123 },
+      ]) {
+        expect(SignMessageResultSchema.safeParse(result).success).toBe(false);
+      }
+    });
+  });
+
   describe("WalletSchema", () => {
     test("validates a complete wallet", () => {
       const wallet = {

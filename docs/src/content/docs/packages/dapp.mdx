@@ -203,6 +203,14 @@ import {
 const status = StatusEventSchema.parse(data);
 ```
 
+`SignMessageResultSchema` requires `signature` and accepts optional `signedBy`,
+`publicKey` (base64 DER SPKI), `signingAlgorithmSpec` (`"ed25519" | "ecdsa-sha256"`),
+`format` (`"concat" | "der"`), and `encoding` (`"base64" | "hex"`). Some wallets, including a pending
+Send release, may include these fields; they are not yet part of CIP-0103. Signature-only results remain valid; unknown keys are
+rejected. The inferred `SignMessageResult` type carries the same optional fields. See
+[Verify signMessage](/guides/verify-sign-message/) for the Send Connect extension's format, metadata availability, and key
+authorization considerations.
+
 Regenerate schemas after spec updates:
 
 ```bash

@@ -6,6 +6,7 @@
  * Post-processes output for Zod 4 compatibility.
  */
 
+import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -253,6 +254,50 @@ function getNamedObjectRefSchemaCode(name: string, schema: JsonSchema): string |
 }
 
 function getSpecialSchemaCode(name: string): string | null {
+  if (name === "SignMessageResult") {
+    const schema = allSchemas[name];
+    const properties = schema.properties;
+    assert(properties && typeof properties === "object" && !Array.isArray(properties));
+
+    // Send signer metadata is proposed upstream; keep the vendored CIP-0103 input intact.
+    const signerMetadataProperties = {
+      signedBy: {
+        type: "string",
+        description:
+          "Optional Send-provided Canton fingerprint (1220…) of the signing key. Proposed upstream; not yet in CIP-0103.",
+      },
+      publicKey: {
+        type: "string",
+        description:
+          "Optional Send-provided signing key as base64 DER SubjectPublicKeyInfo (SPKI). Proposed upstream; not yet in CIP-0103.",
+      },
+      signingAlgorithmSpec: {
+        type: "string",
+        enum: ["ed25519", "ecdsa-sha256"],
+        description:
+          "Optional Send-provided signing algorithm. Proposed upstream; not yet in CIP-0103.",
+      },
+      format: {
+        type: "string",
+        enum: ["concat", "der"],
+        description:
+          "Optional Send-provided signature format. Proposed upstream; not yet in CIP-0103.",
+      },
+      encoding: {
+        type: "string",
+        enum: ["base64", "hex"],
+        description:
+          "Optional Send-provided signature encoding. Proposed upstream; not yet in CIP-0103.",
+      },
+    };
+    return `export const SignMessageResultSchema = ${schemaToZodCode({
+      ...schema,
+      description:
+        "Result of signing a message, with optional Send-provided signer metadata proposed upstream and not yet in CIP-0103.",
+      properties: { ...properties, ...signerMetadataProperties },
+    })}`;
+  }
+
   if (name !== "LedgerApiResult") {
     return null;
   }

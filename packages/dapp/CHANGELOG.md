@@ -1,5 +1,11 @@
 # @sigilry/dapp
 
+## 3.4.0
+
+### Minor Changes
+
+- 0876b66: Accept optional Send-provided signer metadata in signMessage results: signedBy, publicKey, signingAlgorithmSpec, format, and encoding. These fields are proposed upstream and are not yet part of CIP-0103. Signature-only results remain supported, and unknown keys remain rejected.
+
 ## 3.3.2
 
 ### Patch Changes
