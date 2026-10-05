@@ -16,7 +16,8 @@ export default defineConfig({
     sitemap(),
     starlight({
       title: "Sigilry",
-      description: "Chain-agnostic dApp infrastructure for building wallet connections",
+      description:
+        "Canton Network dApp SDK for CIP-0103 wallet connections, with TypeScript providers, React hooks, and Send Connect integration guides.",
       logo: {
         light: "./src/assets/logo-lockup-dark.svg",
         dark: "./src/assets/logo-lockup-light.svg",
@@ -105,6 +106,9 @@ function App() {
 ## Documentation
 
 - [Getting Started](getting-started/introduction/): Overview and quick start guide
+- [Send Connect Testnet](guides/send-connect-testnet/): Install the extension and select Canton testnet
+- [Verify signMessage](guides/verify-sign-message/): Send hex DER signatures, WebCrypto, and delegated signing keys
+- [Read Holdings](guides/read-holdings/): Query token holdings through ledgerApi
 - [Architecture](concepts/architecture/): How the pieces fit together
 - [CIP-103 Conformance](concepts/cip-103-conformance/): Per-method conformance status, deviations, versioning
 - [Transports](concepts/transports/): WindowTransport, HTTP, WebSocket
@@ -144,6 +148,14 @@ function App() {
             { label: "Introduction", slug: "getting-started/introduction" },
             { label: "Quick Start", slug: "getting-started/quick-start" },
             { label: "Demo App", slug: "getting-started/demo-app" },
+          ],
+        },
+        {
+          label: "Partner Guides",
+          items: [
+            { label: "Send Connect Testnet", slug: "guides/send-connect-testnet" },
+            { label: "Verify signMessage", slug: "guides/verify-sign-message" },
+            { label: "Read Holdings", slug: "guides/read-holdings" },
           ],
         },
         {

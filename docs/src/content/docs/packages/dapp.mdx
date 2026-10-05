@@ -8,8 +8,10 @@ description: Core provider, RPC client and server, message schemas, and transpor
 ## Install
 
 ```bash
-yarn add @sigilry/dapp
+yarn add @sigilry/dapp@^3
 ```
+
+Use the stable 3.x line on `latest`. Partner guides cover [Send Connect testnet](/guides/send-connect-testnet/), [verifying signMessage](/guides/verify-sign-message/), and [reading holdings](/guides/read-holdings/).
 
 ## Provider usage (dApp)
 
@@ -87,7 +89,8 @@ const server = createCantonServer({
       payload: { updateId: "update-1", completionOffset: 1 },
     },
   }),
-  signMessage: async () => ({ signature: "base64-signature" }),
+  // Stub only: DER ECDSA integers r=1, s=1, encoded as hex; not a valid message signature.
+  signMessage: async () => ({ signature: "3006020101020101" }),
   ledgerApi: async () => ({ events: [] }),
 });
 
@@ -106,6 +109,8 @@ window.addEventListener("message", async (event) => {
   );
 });
 ```
+
+The server above uses stub handlers. A real Send Connect `signMessage` response contains a lowercase hex DER ECDSA P-256/SHA-256 signature. CIP-0103 leaves the encoding unspecified; other wallets can use different algorithms and encodings. See [Verify signMessage](/guides/verify-sign-message/) for a working verifier.
 
 ## Provider discovery
 

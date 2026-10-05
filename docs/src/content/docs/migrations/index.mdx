@@ -22,7 +22,7 @@ Each published package follows semver, but the way we cut versions differs by ma
 `@sigilry/dapp` and `@sigilry/react` ship on the `latest` dist-tag and move together — a `@sigilry/dapp` major is matched by a `@sigilry/react` major. Install the stable line directly:
 
 ```bash
-yarn add @sigilry/dapp @sigilry/react
+yarn add @sigilry/dapp@^3 @sigilry/react@^3
 ```
 
 The `next` dist-tag carries the frozen `2.0.0-next.*` pre-release line from early development and is **no longer updated**; all new work lands on `latest`. Within a stable major, minors are additive (new hooks, exports, subpaths, optional props) and patches are fixes; the next breaking change cuts the following major.

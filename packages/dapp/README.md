@@ -7,8 +7,12 @@ The CIP-103 OpenRPC machine-readable spec is maintained upstream in [`hyperledge
 ## Installation
 
 ```bash
-yarn add @sigilry/dapp
+yarn add @sigilry/dapp@^3
 ```
+
+The stable Canton Network / CIP-0103 SDK line is 3.x on `latest`. Use `@sigilry/react@^3` for React integration. The `next` tag is frozen on an older prerelease; see the [migration guides](https://sigilry.org/migrations/) when upgrading.
+
+Partner guides: [Send Connect testnet](https://sigilry.org/guides/send-connect-testnet/), [verify signMessage](https://sigilry.org/guides/verify-sign-message/), and [read holdings](https://sigilry.org/guides/read-holdings/).
 
 ## Overview
 

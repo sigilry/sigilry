@@ -1,0 +1,69 @@
+---
+title: Connect to Send Connect testnet
+description: Install the stable Sigilry 3.x SDK, connect the Send Connect extension to Canton testnet, and check the active network.
+---
+
+Send Connect is a browser extension for Canton Network. Its [Chrome Web Store listing](https://chromewebstore.google.com/detail/send-connect/ldmohiccoioolenadmogclhoklmanpgi) supports switching between Mainnet and Testnet.
+
+## Install and select Testnet
+
+1. Install [Send Connect](https://chromewebstore.google.com/detail/send-connect/ldmohiccoioolenadmogclhoklmanpgi) in desktop Chrome.
+2. Open the extension popup and use the network switch to select **Testnet**.
+3. Sign in or complete wallet setup at [testnet.cantonwallet.com](https://testnet.cantonwallet.com) on Testnet. Approve the dApp connection when prompted.
+4. Open or reload the dApp page after installing the extension. Use a separate dApp origin; Send excludes its own wallet pages from provider injection.
+
+| Setting     | Testnet value                                                |
+| ----------- | ------------------------------------------------------------ |
+| Wallet      | [testnet.cantonwallet.com](https://testnet.cantonwallet.com) |
+| API gateway | `https://api-testnet.cantonwallet.com`                       |
+| Network ID  | `canton:testnet`                                             |
+
+The gateway is the wallet's authenticated API endpoint. A dApp uses the provider's `ledgerApi` method for ledger reads; the gateway URL alone does not grant ledger access.
+
+## Install the stable SDK
+
+```bash
+yarn add @sigilry/dapp@^3
+# For React applications
+yarn add @sigilry/react@^3 @tanstack/react-query
+```
+
+Both dapp/react packages ship the stable 3.x line on `latest`. The `next` tag is frozen on an old 2.0 prerelease. The current Send Connect message contract is incompatible with the legacy 1.x client; follow [Migrations](/migrations/) to upgrade.
+
+## Connect and check the network
+
+This example assumes Send Connect is the selected injected wallet. With several installed wallets, use [provider discovery](/concepts/discovery/) to select Send Connect explicitly.
+
+```ts
+import type { SpliceProvider } from "@sigilry/dapp";
+import "@sigilry/dapp/browser-globals";
+
+async function connectToTestnet(provider: SpliceProvider) {
+  const connection = await provider.request({ method: "connect" });
+  if (!connection.isConnected || connection.isNetworkConnected === false) {
+    throw new Error("Wallet connection is not ready");
+  }
+
+  const network = await provider.request({ method: "getActiveNetwork" });
+  if (network.networkId !== "canton:testnet") {
+    throw new Error("Select Testnet in the Send Connect popup, then reconnect");
+  }
+
+  return provider.request({ method: "listAccounts" });
+}
+
+if (!window.canton) throw new Error("Install Send Connect and reload the dApp");
+const accounts = await connectToTestnet(window.canton);
+console.log(accounts.map(({ partyId, networkId }) => ({ partyId, networkId })));
+```
+
+Recheck the network before a transaction, and refresh account state after `accountsChanged`. The current Send Connect extension uses this event for account and connection changes; it does not emit `statusChanged`. A party and its contracts belong to their network; switching the popup does not move mainnet holdings to testnet.
+
+## Common connection problems
+
+- **Provider missing:** Confirm the extension is enabled for the dApp origin and reload the page. Test on the dApp page rather than a Send wallet page.
+- **Wrong network:** Select Testnet in the popup and reconnect. Check `getActiveNetwork().networkId` before using accounts.
+- **Legacy SDK:** Install dapp/react 3.x together. Avoid the frozen `next` tag.
+- **Connected but ledger unavailable:** Inspect the error returned by `ledgerApi` to diagnose authentication, gateway, or ledger failures. The extension's `isNetworkConnected` reports whether a network ID and gateway URL are configured; it is not a ledger availability probe and can remain `true` when the ledger is down.
+
+Next: [verify a signed message](/guides/verify-sign-message/) or [read token holdings](/guides/read-holdings/).

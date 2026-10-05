@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "verify:pre-push": "yarn check",
-    "check": "yarn typecheck && yarn lint && yarn format:check && yarn knip && yarn build && yarn test",
+    "check": "yarn check-deps && yarn typecheck && yarn lint && yarn format:check && yarn knip && yarn build && yarn test",
     "build": "turbo run build --filter=!@sigilry/docs --filter=!@sigilry/demo-app",
     "test": "turbo run test --filter=!@sigilry/docs --filter=!@sigilry/demo-app",
     "typecheck": "tsgo --project tsconfig.json",

@@ -1,7 +1,11 @@
 {
   "name": "@sigilry/splice-dars",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Splice DAR files for @sigilry SDK development",
+  "keywords": [
+    "canton",
+    "cip-0103"
+  ],
   "homepage": "https://sigilry.org",
   "bugs": {
     "url": "https://github.com/sigilry/sigilry/issues"

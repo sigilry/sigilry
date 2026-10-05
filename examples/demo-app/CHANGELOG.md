@@ -1,5 +1,14 @@
 # @sigilry/demo-app
 
+## 0.0.10
+
+### Patch Changes
+
+- Updated dependencies [adbdead]
+- Updated dependencies [aa22cd3]
+  - @sigilry/dapp@3.3.2
+  - @sigilry/react@3.2.1
+
 ## 0.0.9
 
 ### Patch Changes

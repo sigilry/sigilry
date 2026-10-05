@@ -1,9 +1,10 @@
 {
   "name": "@sigilry/canton-json-api",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Generated TypeScript types for Canton JSON API v2",
   "keywords": [
     "canton",
+    "cip-0103",
     "json-api",
     "openapi",
     "typescript"

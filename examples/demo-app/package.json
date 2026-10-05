@@ -1,6 +1,6 @@
 {
   "name": "@sigilry/demo-app",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,7 +15,7 @@
     "codegen": "sigilry codegen --config ./sigilry.config.ts"
   },
   "dependencies": {
-    "@sigilry/dapp": "workspace:*",
+    "@sigilry/dapp": "^3.3.2",
     "@sigilry/react": "workspace:*",
     "@tanstack/react-query": "^5.79.0",
     "react": "19.2.4",

@@ -1,0 +1,125 @@
+---
+title: Verify signMessage
+description: Verify Send Connect's hex DER ECDSA P-256 signatures with WebCrypto and a base64 SPKI public key, including delegated signing keys.
+---
+
+[CIP-0103](https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md#signmessage) defines message signing but does not fix the signature encoding or algorithm. Sigilry's current `SignMessageResult` contains a `signature` string. Choose a verifier for the selected wallet's documented format.
+
+## Send Connect browser extension format
+
+| Value               | Format                                                                                 |
+| ------------------- | -------------------------------------------------------------------------------------- |
+| Message             | Exact UTF-8 bytes of the string supplied to `signMessage`                              |
+| Algorithm           | ECDSA P-256 with SHA-256                                                               |
+| `signature`         | Lowercase hexadecimal, no `0x` prefix, containing ASN.1 DER ECDSA integers `r` and `s` |
+| Account `publicKey` | Base64-encoded DER SubjectPublicKeyInfo (SPKI)                                         |
+
+Do not base64-encode, normalize, or prehash the message before verification. WebCrypto hashes the UTF-8 bytes with SHA-256. The hex DER verifier below is specific to the Send Connect browser extension.
+
+Send's WalletConnect `canton_signMessage` currently returns a 64-byte hex `r‖s` signature, with `fingerprint` and `publicKey`. Do not use this DER parser for that response. Send has a pending change (`ba1bc3ecd` in canton-monorepo, unreleased) to unify both transports on hex DER; this guide describes the current extension behavior. Other wallets can return different formats.
+
+The current extension signing result contains only `{ signature }` and does not provide signer metadata. Verify it with the account `publicKey` captured before signing.
+
+## WebCrypto verifier
+
+[WebCrypto ECDSA](https://www.w3.org/TR/webcrypto/#ecdsa-operations) uses fixed-width `r || s` signature bytes. Decode Send's hex DER signature into two 32-byte integers before calling `crypto.subtle.verify`. The key imports with the `spki` format.
+
+This JavaScript works in a secure browser context or Node.js with WebCrypto. It returns `false` for a well-formed signature that does not match and throws for malformed input or an unsupported key. The example limits messages to 64 KiB and accepts only P-256 DER signatures (at most 72 bytes).
+
+```js
+function sendDerSignatureToRaw(signatureHex) {
+  if (
+    typeof signatureHex !== "string" ||
+    signatureHex.length < 16 ||
+    signatureHex.length > 144 ||
+    !/^(?:[0-9a-f]{2})+$/.test(signatureHex)
+  ) {
+    throw new Error("Expected a lowercase hex DER P-256 signature");
+  }
+
+  const der = Uint8Array.from(signatureHex.match(/../g), (byte) => parseInt(byte, 16));
+  if (der[0] !== 0x30 || der[1] !== der.length - 2) {
+    throw new Error("Invalid DER sequence");
+  }
+
+  const raw = new Uint8Array(64);
+  let cursor = 2;
+  for (const destination of [0, 32]) {
+    if (cursor + 2 > der.length || der[cursor++] !== 0x02) {
+      throw new Error("Expected a DER integer");
+    }
+    const length = der[cursor++];
+    if (length < 1 || length > 33 || cursor + length > der.length) {
+      throw new Error("Invalid DER integer length");
+    }
+    let integer = der.subarray(cursor, cursor + length);
+    cursor += length;
+    if (integer[0] & 0x80) throw new Error("Negative DER integer");
+    if (integer.length > 1 && integer[0] === 0) {
+      if (!(integer[1] & 0x80)) throw new Error("Non-minimal DER integer");
+      integer = integer.subarray(1);
+    }
+    if (integer.length > 32) throw new Error("Integer exceeds P-256 width");
+    raw.set(integer, destination + 32 - integer.length);
+  }
+  if (cursor !== der.length) throw new Error("Trailing DER data");
+  return raw;
+}
+
+async function verifySendMessage(message, signatureHex, publicKeyBase64) {
+  if (typeof message !== "string" || message.length > 65536) {
+    throw new Error("Message exceeds the example's 64 KiB limit");
+  }
+  const messageBytes = new TextEncoder().encode(message);
+  if (messageBytes.length > 65536) throw new Error("Message exceeds 64 KiB in UTF-8");
+  if (typeof publicKeyBase64 !== "string" || publicKeyBase64.length > 256) {
+    throw new Error("Expected a base64 SPKI P-256 public key");
+  }
+  const spki = Uint8Array.from(atob(publicKeyBase64), (character) => character.charCodeAt(0));
+  const key = await crypto.subtle.importKey(
+    "spki",
+    spki,
+    { name: "ECDSA", namedCurve: "P-256" },
+    false,
+    ["verify"],
+  );
+  return crypto.subtle.verify(
+    { name: "ECDSA", hash: "SHA-256" },
+    key,
+    sendDerSignatureToRaw(signatureHex),
+    messageBytes,
+  );
+}
+```
+
+After connecting to Send Connect, capture the current account and ask the user to sign:
+
+```ts
+import "@sigilry/dapp/browser-globals";
+
+if (!window.canton) throw new Error("Connect Send Connect first");
+const account = await window.canton.request({ method: "getPrimaryAccount" });
+const message = "Example message for signature verification";
+const { signature } = await window.canton.request({
+  method: "signMessage",
+  params: { message },
+});
+const current = await window.canton.request({ method: "getPrimaryAccount" });
+if (
+  current.partyId !== account.partyId ||
+  current.publicKey !== account.publicKey ||
+  current.networkId !== account.networkId
+) {
+  throw new Error("Account changed during signing; request a fresh signature");
+}
+const valid = await verifySendMessage(message, signature, account.publicKey);
+console.log({ valid });
+```
+
+## Multiple passkeys and delegated signing keys
+
+A Canton party can have several authorized signing keys. Send signs with the key associated with the active session's credential; the account `publicKey` reflects that signing key. Its fingerprint can differ from the namespace suffix in `partyId`. Do not derive or select the verification key from the party namespace alone.
+
+Signature verification proves possession of the supplied key. For login or authorization, a backend must independently establish that this key is authorized for the claimed party on the selected network, for example through trusted Canton topology data. Trusting a caller-supplied `partyId` and `publicKey` is insufficient. Use a server-issued, single-use challenge bound to the intended application, party, network, and expiry, then consume it after verification to prevent replay. The fixed message above only demonstrates cryptographic verification.
+
+Do not assume a single namespace key represents every passkey or a threshold safe. The current Send dApp API exposes one active signing key; it does not implement a multi-signature safe verification flow.

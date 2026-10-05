@@ -1,5 +1,11 @@
 # @sigilry/splice-dars
 
+## 0.4.2
+
+### Patch Changes
+
+- adbdead: Document the stable dapp/react 3.x installation path, add Canton and CIP-0103 package discovery keywords, and link partner guides for Send Connect testnet, message signature verification, and holdings queries. Add npm READMEs for the React and CLI packages.
+
 ## 0.4.1
 
 ### Patch Changes

@@ -1,3 +1,5 @@
-# Auto-generated files
+# Auto-generated files (oxfmt reads this file by default)
 **/generated/
 .rl.*/
+# changesets writes CHANGELOG.md in its own markdown style — don't format-gate it
+**/CHANGELOG.md

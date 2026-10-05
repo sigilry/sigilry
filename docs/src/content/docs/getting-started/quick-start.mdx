@@ -14,7 +14,7 @@ This guide shows two paths:
 - A Sigilry-compatible wallet extension available in your browser.
 - For React apps: `@tanstack/react-query`.
 
-No wallet extension yet? Run the local demo first:
+For a hosted wallet, follow [Connect to Send Connect testnet](/guides/send-connect-testnet/). For a local wallet simulator, run the demo:
 
 ```bash
 nix develop
@@ -27,14 +27,16 @@ yarn --cwd examples/demo-app dev
 Vanilla:
 
 ```bash
-yarn add @sigilry/dapp
+yarn add @sigilry/dapp@^3
 ```
 
 React:
 
 ```bash
-yarn add @sigilry/react @sigilry/dapp @tanstack/react-query
+yarn add @sigilry/react@^3 @sigilry/dapp@^3 @tanstack/react-query
 ```
+
+The stable dapp/react line is 3.x on `latest`; the old `next` prerelease tag is frozen. See [Migrations](/migrations/) when upgrading from 1.x or 2.x.
 
 ## 2. Verify the provider is available
 

@@ -1,14 +1,16 @@
 # @sigilry/splice-dars
 
-Vendored [Splice](https://github.com/hyperledger-labs/splice) DAR files with typed path exports.
+Vendored [Splice](https://github.com/hyperledger-labs/splice) DAR files for Canton Network with typed path exports, for use alongside Sigilry's CIP-0103 dApp SDK.
 
 ## Install
 
 ```bash
-npm install @sigilry/splice-dars
+npm install @sigilry/splice-dars@^0.4
 # or
-yarn add @sigilry/splice-dars
+yarn add @sigilry/splice-dars@^0.4
 ```
+
+This package has its own 0.x version line. Wallet connectivity uses `@sigilry/dapp@^3` and, for React, `@sigilry/react@^3`.
 
 ## Usage
 

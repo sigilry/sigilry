@@ -1,9 +1,11 @@
 {
   "name": "@sigilry/dapp",
-  "version": "3.3.1",
+  "version": "3.3.2",
   "description": "Chain/transport-agnostic dApp infrastructure - RPC client/server and transports",
   "keywords": [
     "blockchain",
+    "canton",
+    "cip-0103",
     "dapp",
     "json-rpc",
     "rpc",

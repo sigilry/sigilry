@@ -37,17 +37,21 @@ ChainHandler (chain-specific logic)    <- consumers implement
 
 ## Installation
 
-`@sigilry/dapp` and `@sigilry/react` are on the **`2.0.0-next.N` pre-release line** while the CIP-0103 RPC contract settles. Install with an explicit version or the `next` dist-tag; the `latest` tag still points at the older `1.x` line.
+Install the stable **3.x** line of `@sigilry/dapp` and `@sigilry/react` for Canton Network / CIP-0103 integrations:
 
 ```bash
-# Pin to a specific pre-release (recommended)
-yarn add @sigilry/dapp@2.0.0-next.3 @sigilry/react@2.0.0-next.3
-
-# Or track the rolling next tag (expect breaks between bumps)
-yarn add @sigilry/dapp@next @sigilry/react@next
+yarn add @sigilry/dapp@^3 @sigilry/react@^3
+# Or with npm
+npm install @sigilry/dapp@^3 @sigilry/react@^3
 ```
 
-See [`docs/migrations`](./docs/src/content/docs/migrations/) for the full release cadence policy and per-version migration guides.
+Both packages publish 3.x on `latest`. The `next` tag is frozen on the old 2.0 prerelease line; use 3.x with the current Send Connect extension. See the [migration guides](https://sigilry.org/migrations/) when upgrading from 1.x or 2.x. The CLI, JSON API types, and DAR packages have their own version lines.
+
+## Partner guides
+
+- [Connect to Send Connect testnet](https://sigilry.org/guides/send-connect-testnet/) — extension installation, network selection, and wallet URLs.
+- [Verify signMessage](https://sigilry.org/guides/verify-sign-message/) — the Send Connect extension's hex DER format, WebCrypto verification with the active account key, and delegated-key limits. Send WalletConnect currently returns 64-byte hex `r‖s` with `fingerprint` and `publicKey`; Send's DER unification change (`ba1bc3ecd` in canton-monorepo) is pending and unreleased.
+- [Read holdings](https://sigilry.org/guides/read-holdings/) — query token holdings through `ledgerApi`; submit commands with `prepareExecute`.
 
 ## Development
 
