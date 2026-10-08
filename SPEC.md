@@ -7,16 +7,8 @@ This is the top-level specification entrypoint for the monorepo.
 ### Repo-Level Specs
 
 - `SPEC.md` (this file)
-- `specs/README.md` (spec index and SRP status)
-- `specs/relay-protocol.spec.md`
+- `specs/README.md` (spec index and statuses)
 - `specs/ci-cd.spec.md`
-- `specs/srp-sdk.spec.md`
-- `specs/srp-crypto.spec.md`
-- `specs/srp-permissions.spec.md`
-- `specs/srp-relay-service.spec.md`
-- `specs/srp-wallet-ui.spec.md`
-- `specs/srp-cli.spec.md`
-- `specs/srp-webrtc.spec.md`
 
 ### Package Sub-Specs
 
