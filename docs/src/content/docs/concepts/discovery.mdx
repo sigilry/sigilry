@@ -37,16 +37,7 @@ mount, and wallets also announce eagerly on injection. The dApp accumulates what
 
 A wallet announces a **flat detail** — `SpliceAnnounceDetail`:
 
-```ts
-type SpliceAnnounceDetail = {
-  id: string; // provider id (e.g. the extension id)
-  name: string; // human label, e.g. "Send Connect"
-  icon: `data:image/${string}`; // inline icon
-  target: string; // the postMessage target the provider listens on
-  rdns: string; // reverse-DNS identity, e.g. "it.send.connect"
-  uuid: string; // stable per-announcement id
-};
-```
+<Snippet path="concepts/discovery-announce-detail.ts" />
 
 `rdns` and `uuid` are **required** on the published type — a wallet author must supply both. A
 pre-discovery wallet that announces without them is normalized at the store boundary instead (see
@@ -55,18 +46,7 @@ pre-discovery wallet that announces without them is normalized at the store boun
 The discovery store **normalizes** each detail on arrival into a `SpliceProviderInfo` and pairs it
 with a lazy provider factory — a `DiscoveredWallet`:
 
-```ts
-type SpliceProviderInfo = {
-  uuid: string;
-  rdns: string;
-  name: string;
-  icon: `data:image/${string}`;
-};
-type DiscoveredWallet = {
-  info: SpliceProviderInfo;
-  getProvider(opts?: TransportOptions): SpliceProvider;
-};
-```
+<Snippet path="concepts/discovered-wallet.ts" />
 
 `info.rdns` is the **lookup** key — `store.findProvider({ rdns })` resolves a wallet by it. The store
 **dedupes announcements by `info.uuid`**, not by `rdns`: two entries that share an `rdns` but differ

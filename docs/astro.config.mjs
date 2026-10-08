@@ -55,7 +55,7 @@ Integration notes:
 - The per-method CIP-103 surface, including push events, is in [CIP-103 Conformance](concepts/cip-103-conformance/). Full signatures are in the [API Reference](api-reference/readme/).
 `,
           contentNegotiation: true,
-          promote: ["index", "getting-started/**", "guides/**", "packages/**"],
+          promote: ["index*", "getting-started/**", "guides/**", "packages/**"],
           demote: ["migrations/**", "api-reference/**"],
         }),
         starlightTypeDoc({

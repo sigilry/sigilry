@@ -1,6 +1,6 @@
 {
   "name": "@sigilry/cli",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "CLI for generating TypeScript types from DAML contracts",
   "keywords": [
     "canton",

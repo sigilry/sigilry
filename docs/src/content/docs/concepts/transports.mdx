@@ -9,13 +9,7 @@ Transports are responsible for delivering JSON-RPC requests and responses betwee
 
 ## Core interface
 
-```ts
-import type { RequestPayload, ResponsePayload } from "@sigilry/dapp/messages";
-
-export interface RpcTransport {
-  submit(payload: RequestPayload): Promise<ResponsePayload>;
-}
-```
+<Snippet path="concepts/rpc-transport.ts" />
 
 ## WindowTransport
 

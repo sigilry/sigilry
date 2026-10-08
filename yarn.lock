@@ -5,15 +5,16 @@ __metadata:
   version: 8
   cacheKey: 10
 
-"@0xbigboss/starlight-llms-txt@npm:0.8.0-beta.2":
-  version: 0.8.0-beta.2
-  resolution: "@0xbigboss/starlight-llms-txt@npm:0.8.0-beta.2"
+"@0xbigboss/starlight-llms-txt@npm:0.8.0-beta.3":
+  version: 0.8.0-beta.3
+  resolution: "@0xbigboss/starlight-llms-txt@npm:0.8.0-beta.3"
   dependencies:
     "@astrojs/mdx": "npm:^4.3.13"
     "@types/hast": "npm:^3.0.4"
     "@types/micromatch": "npm:^4.0.10"
     github-slugger: "npm:^2.0.0"
     hast-util-select: "npm:^6.0.4"
+    hast-util-to-string: "npm:^3.0.1"
     micromatch: "npm:^4.0.8"
     rehype-parse: "npm:^9.0.1"
     rehype-remark: "npm:^10.0.1"
@@ -24,7 +25,7 @@ __metadata:
   peerDependencies:
     "@astrojs/starlight": ">=0.31"
     astro: ^5.15.9
-  checksum: 10/65241daea3f46f5102cc554622385fea7bf9c2a8ad3027cadc78f6f999ae06dceac2a9c0d47ad6f095a467f39dfeec5d1a451500afd82f1580a33486b8312990
+  checksum: 10/1d859fefaab7cc4243e058d54617729874cef2c6764962c5df0f435ec1ff3e364f5c379f3bfc292df8c6cc4c8902b3f742d703ff4f64636f507479f9c1f58dc4
   languageName: node
   linkType: hard
 
@@ -3001,7 +3002,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@sigilry/docs@workspace:docs"
   dependencies:
-    "@0xbigboss/starlight-llms-txt": "npm:0.8.0-beta.2"
+    "@0xbigboss/starlight-llms-txt": "npm:0.8.0-beta.3"
     "@astrojs/sitemap": "npm:^3.7.0"
     "@astrojs/starlight": "patch:@astrojs/starlight@npm%3A0.37.3#~/.yarn/patches/@astrojs-starlight-npm-0.37.3-9ae9eae44f.patch"
     "@cloudflare/workers-types": "npm:^4.20260303.0"
@@ -6226,7 +6227,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"hast-util-to-string@npm:^3.0.0":
+"hast-util-to-string@npm:^3.0.0, hast-util-to-string@npm:^3.0.1":
   version: 3.0.1
   resolution: "hast-util-to-string@npm:3.0.1"
   dependencies:

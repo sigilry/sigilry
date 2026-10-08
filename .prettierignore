@@ -3,3 +3,5 @@
 .rl.*/
 # changesets writes CHANGELOG.md in its own markdown style — don't format-gate it
 **/CHANGELOG.md
+# Compositor writes its own manifest format; board.py regenerates it
+*.comp/

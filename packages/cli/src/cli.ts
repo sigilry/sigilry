@@ -7,8 +7,9 @@
  *   sigilry codegen --watch   Watch mode
  *   sigilry init              Create sigilry.config.ts
  */
-import { existsSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import debug from "debug";
 import { generateTypes, watchDars } from "./codegen.js";
@@ -17,12 +18,39 @@ import { loadConfig } from "./loader.js";
 
 const _log = debug("sigilry:cli");
 
+/**
+ * Read this package's version from its package.json. The CLI runs from both
+ * `src/` and `dist/src/`, so search upward from this module for the manifest.
+ */
+function readPackageVersion(): string {
+  let dir = dirname(fileURLToPath(import.meta.url));
+  while (!existsSync(join(dir, "package.json"))) {
+    const parent = dirname(dir);
+    if (parent === dir) {
+      throw new Error("sigilry: package.json not found above the CLI module");
+    }
+    dir = parent;
+  }
+  const manifest: unknown = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
+  if (
+    typeof manifest !== "object" ||
+    manifest === null ||
+    !("name" in manifest) ||
+    manifest.name !== "@sigilry/cli" ||
+    !("version" in manifest) ||
+    typeof manifest.version !== "string"
+  ) {
+    throw new Error(`sigilry: ${join(dir, "package.json")} is not the @sigilry/cli manifest`);
+  }
+  return manifest.version;
+}
+
 const program = new Command();
 
 program
   .name("sigilry")
   .description("CLI for generating TypeScript types from DAML contracts")
-  .version("0.1.0");
+  .version(readPackageVersion());
 
 /**
  * Check that dpm CLI is available (only needed for codegen)

@@ -42,11 +42,7 @@ The stable dapp/react line is 3.x on `latest`; the old `next` prerelease tag is 
 
 ## 2. Verify the provider is available
 
-```ts
-if (!window.canton) {
-  throw new Error("Canton provider not available");
-}
-```
+<Snippet path="start/provider-guard.ts" />
 
 ## 3. Make your first request
 

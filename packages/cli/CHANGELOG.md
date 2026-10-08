@@ -1,5 +1,11 @@
 # @sigilry/cli
 
+## 0.3.4
+
+### Patch Changes
+
+- 91ecadc: `sigilry --version` now prints the installed package version instead of `0.1.0`.
+
 ## 0.3.3
 
 ### Patch Changes
