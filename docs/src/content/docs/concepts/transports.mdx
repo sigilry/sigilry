@@ -3,6 +3,8 @@ title: Transports
 description: The transport layer that moves JSON-RPC between dApps and wallets.
 ---
 
+import Snippet from "../../../components/Snippet.astro";
+
 Transports are responsible for delivering JSON-RPC requests and responses between the dApp and the wallet extension.
 
 ## Core interface
@@ -19,50 +21,20 @@ export interface RpcTransport {
 
 `WindowTransport` uses `window.postMessage` for cross-context communication.
 
-```ts
-import { createCantonClient, WindowTransport } from "@sigilry/dapp";
-
-async function getStatus() {
-  const transport = new WindowTransport(window, {
-    timeout: 30000,
-    targetOrigin: "*",
-  });
-
-  const client = createCantonClient(transport);
-  return await client.status();
-}
-
-getStatus().then(console.log);
-```
+<Snippet path="concepts/window-transport.ts" />
 
 ### Options
 
 - `timeout`: request timeout in milliseconds (default `30000`).
 - `targetOrigin`: `postMessage` target origin (default `*`).
+- `target`: optional routing key that addresses one wallet extension when several are installed (default unset). Providers from [discovery](../discovery/) set it from the wallet's announcement.
+
+## WalletConnectTransport
+
+`WalletConnectTransport` carries the same JSON-RPC surface over the WalletConnect relay instead of `postMessage`, for WalletConnect-capable Canton wallets (cross-device, no extension). It requires a WalletConnect Cloud `projectId` and dApp `metadata`; see the [API reference](../../api-reference/dapp/src/classes/walletconnecttransport/) for the full `WalletConnectTransportConfig`.
 
 ## Custom transports
 
-You can implement `RpcTransport` for other environments (HTTP, WebSocket, iframe bridges):
+`@sigilry/dapp` ships only `WindowTransport` and `WalletConnectTransport`. For other environments (HTTP, WebSocket, iframe bridges), implement `RpcTransport` yourself. A minimal HTTP example:
 
-```ts
-import type { RequestPayload, ResponsePayload } from "@sigilry/dapp/messages";
-import type { RpcTransport } from "@sigilry/dapp/transport";
-
-export class HttpTransport implements RpcTransport {
-  constructor(private readonly baseUrl: string) {}
-
-  async submit(payload: RequestPayload): Promise<ResponsePayload> {
-    const response = await fetch(`${this.baseUrl}/rpc`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    return (await response.json()) as ResponsePayload;
-  }
-}
-```
+<Snippet path="concepts/http-transport.ts" />

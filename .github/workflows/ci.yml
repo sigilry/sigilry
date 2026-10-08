@@ -58,6 +58,7 @@ jobs:
             corepack yarn format:check
             corepack yarn knip
             corepack yarn build
+            corepack yarn --cwd docs build
             corepack yarn test
           '
 
@@ -112,5 +113,6 @@ jobs:
             corepack yarn format:check
             corepack yarn knip
             corepack yarn build
+            corepack yarn --cwd docs build
             corepack yarn test
           '

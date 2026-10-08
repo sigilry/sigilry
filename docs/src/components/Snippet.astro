@@ -1,0 +1,37 @@
+---
+/**
+ * Renders a code sample from `docs/snippets/`. Snippets are real source files
+ * that `yarn typecheck` compiles against the workspace packages, so a sample
+ * that drifts from the public API fails CI instead of shipping.
+ *
+ * Lines up to and including a `// ---cut---` line are setup the reader does not
+ * need (placeholders, imports for context) and are hidden from the page.
+ */
+import { Code } from "@astrojs/starlight/components";
+
+interface Props {
+  /** Path relative to `docs/snippets/`, e.g. `react/provider-setup.tsx`. */
+  path: string;
+  title?: string;
+}
+
+const CUT_MARKER = "// ---cut---\n";
+
+const sources = import.meta.glob<string>("/snippets/**/*.{ts,tsx}", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+});
+
+const { path, title } = Astro.props;
+const source = sources[`/snippets/${path}`];
+if (source === undefined) {
+  throw new Error(`Snippet not found: docs/snippets/${path}`);
+}
+
+const cutIndex = source.indexOf(CUT_MARKER);
+const code = (cutIndex === -1 ? source : source.slice(cutIndex + CUT_MARKER.length)).trimEnd();
+const lang = path.endsWith(".tsx") ? "tsx" : "ts";
+---
+
+<Code code={code} lang={lang} title={title} />

@@ -9,6 +9,7 @@
     { "path": "packages/canton-json-api" },
     { "path": "packages/dapp" },
     { "path": "packages/react" },
-    { "path": "packages/cli" }
+    { "path": "packages/cli" },
+    { "path": "packages/splice-dars" }
   ]
 }

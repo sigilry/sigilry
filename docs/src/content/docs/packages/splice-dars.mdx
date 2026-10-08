@@ -3,6 +3,8 @@ title: "@sigilry/splice-dars"
 description: Vendored Splice DAR files with typed path exports for Canton Network development.
 ---
 
+import Snippet from "../../../components/Snippet.astro";
+
 `@sigilry/splice-dars` provides vendored [Splice](https://github.com/hyperledger-labs/splice) DAR files with typed path exports. Use it with `@sigilry/cli` to generate TypeScript types from the official Splice contracts without manually downloading release artifacts.
 
 ## What are DARs?
@@ -21,15 +23,7 @@ yarn add @sigilry/splice-dars
 
 The primary use case is feeding DAR paths to `@sigilry/cli` for TypeScript code generation:
 
-```ts title="sigilry.config.ts"
-import { defineConfig } from "@sigilry/cli/config";
-import { spliceDars } from "@sigilry/splice-dars";
-
-export default defineConfig({
-  dars: [spliceDars.amulet, spliceDars.apiTokenHolding, spliceDars.apiTokenTransferInstruction],
-  output: "./src/generated",
-});
-```
+<Snippet path="splice-dars/config.ts" title="sigilry.config.ts" />
 
 Then generate types:
 
@@ -39,23 +33,11 @@ sigilry codegen
 
 ### Use all DARs
 
-```ts
-import { allSpliceDars } from "@sigilry/splice-dars";
-
-// Pass every Splice DAR to codegen
-export default defineConfig({
-  dars: [...allSpliceDars],
-  output: "./src/generated",
-});
-```
+<Snippet path="splice-dars/all-dars.ts" title="sigilry.config.ts" />
 
 ### Check the Splice version
 
-```ts
-import { SPLICE_VERSION } from "@sigilry/splice-dars";
-
-console.log(SPLICE_VERSION); // "0.5.14"
-```
+<Snippet path="splice-dars/version.ts" />
 
 ## Available DARs
 

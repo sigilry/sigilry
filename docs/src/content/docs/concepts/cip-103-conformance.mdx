@@ -3,6 +3,8 @@ title: CIP-103 Conformance
 description: How Sigilry conforms to CIP-103, the Canton Network dApp API standard.
 ---
 
+import Snippet from "../../../components/Snippet.astro";
+
 Sigilry is a [CIP-103](https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md)-compliant
 dApp connectivity library for Canton Network. This page is the citeable source of truth for what that
 means in practice: which CIP-103 methods sigilry implements, where the provider object, error codes,
@@ -76,15 +78,7 @@ Sigilry implements this contract
 through the [`SpliceProvider`](../../api-reference/dapp/src/interfaces/spliceprovider/) interface in
 `@sigilry/dapp` and exposes it at `window.canton`.
 
-```ts
-// Canonical CIP-103 call shape
-const status = await window.canton.request({ method: "status" });
-
-// Event subscription
-window.canton.on("accountsChanged", (accounts) => {
-  /* ... */
-});
-```
+<Snippet path="concepts/cip-103-call-shape.ts" />
 
 ## Error codes
 
@@ -113,10 +107,7 @@ sigilry implements. The `@sigilry/dapp` package version itself follows changeset
 independently — package bumps may ship without a CIP-103 revision change, but a CIP-103 revision change
 always coincides with a major or minor `@sigilry/dapp` bump.
 
-```ts
-import { CANTON_DAPP_API_VERSION } from "@sigilry/dapp";
-console.log(CANTON_DAPP_API_VERSION); // CIP-103 dApp API revision
-```
+<Snippet path="concepts/cip-103-api-version.ts" />
 
 ## Interop test harness
 

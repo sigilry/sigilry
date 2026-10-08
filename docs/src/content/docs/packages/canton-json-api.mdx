@@ -1,0 +1,28 @@
+---
+title: "@sigilry/canton-json-api"
+description: Generated Canton JSON API v2 types and Zod schemas for typed ledgerApi requests and responses.
+---
+
+import Snippet from "../../../components/Snippet.astro";
+
+`@sigilry/canton-json-api` provides TypeScript types and Zod schemas generated from the pinned Canton JSON Ledger API v2 OpenAPI spec. Use it to type and validate the bodies that flow through the CIP-103 `ledgerApi` method.
+
+## Install
+
+```bash
+yarn add @sigilry/canton-json-api@^1
+```
+
+This package has its own 1.x version line. Wallet connectivity uses `@sigilry/dapp@^3` and, for React, `@sigilry/react@^3`.
+
+## Parse a ledger response
+
+Schemas are named `z<OperationOrType>`. `int64` fields, such as ledger offsets, are modeled as `bigint` after parsing.
+
+<Snippet path="canton-json-api/parse-ledger-end.ts" />
+
+With React, pass a schema's `parse` to [`useLedgerApi`](../react/#ledger-api-request) to get typed results. For a full holdings query through the wallet, see [Read Holdings](../../guides/read-holdings/).
+
+## Source of truth
+
+The package is generated from a checked-in OpenAPI snapshot (`packages/canton-json-api/api-specs/openapi.yaml`) pinned to a specific Canton release. CI runs `codegen:check` and fails when the generated files drift from that snapshot.

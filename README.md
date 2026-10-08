@@ -10,13 +10,19 @@
 
 ## Packages
 
-| Package                                                | Description                                             |
-| ------------------------------------------------------ | ------------------------------------------------------- |
-| [@sigilry/dapp](./packages/dapp)                       | SpliceProvider interface, RPC client/server, transports |
-| [@sigilry/react](./packages/react)                     | React context, hooks, connection state                  |
-| [@sigilry/cli](./packages/cli)                         | OpenRPC to TypeScript codegen                           |
-| [@sigilry/canton-json-api](./packages/canton-json-api) | Generated Canton JSON API v2 types and Zod schemas      |
-| [@sigilry/splice-dars](./packages/splice-dars)         | Vendored Splice DAR files with typed path exports       |
+| Package                                                | Description                                                             |
+| ------------------------------------------------------ | ----------------------------------------------------------------------- |
+| [@sigilry/dapp](./packages/dapp)                       | SpliceProvider interface, RPC client/server, transports, discovery      |
+| [@sigilry/react](./packages/react)                     | React context, hooks, connection state                                  |
+| [@sigilry/cli](./packages/cli)                         | TypeScript code generation from DAML DARs (dpm alpha generator wrapper) |
+| [@sigilry/canton-json-api](./packages/canton-json-api) | Generated Canton JSON API v2 types and Zod schemas                      |
+| [@sigilry/splice-dars](./packages/splice-dars)         | Vendored Splice DAR files with typed path exports                       |
+
+## SDK Ownership
+
+Sigilry owns dApp RPC schemas, provider/transports, discovery, React state/hooks, the DAR alpha-generator wrapper, and generated JSON Ledger API types/schema. Each package's README/SPEC and manifest document its contract and version. Consumer repositories record the versions they adopt and verify their installed APIs.
+
+[canton-clients](https://github.com/0xsend/canton-clients/blob/main/README.md) owns Canton/Splice protocol clients, transport-neutral Daml metadata, LF metadata codegen, typed gRPC/JSON Daml actions, signing/topology helpers, and upstream provenance. Its [LF metadata generator](https://github.com/0xsend/canton-clients/blob/main/packages/lf-meta-codegen/README.md) differs from Sigilry's DAR wrapper; its JSON client differs from Sigilry's types/schema-only package. Switching these contracts is an explicit migration. Send Connect wallet approvals, credential storage, signing authorization, and gateway orchestration belong to canton-monorepo.
 
 ## Specifications
 
@@ -26,14 +32,17 @@
 ## Architecture
 
 ```
-Transport (WindowTransport, HTTP, WS)  <- pluggable
+SpliceProvider interface                       <- dApp-facing API (window.canton, discovery)
     |
-RPC (client/server, Zod validation)    <- chain-agnostic
+RPC (client/server, Zod validation)            <- CIP-103 OpenRPC schemas
     |
-SpliceProvider interface               <- dApp-facing API
+Transport (WindowTransport,                    <- pluggable via RpcTransport
+           WalletConnectTransport)
     |
-ChainHandler (chain-specific logic)    <- consumers implement
+Wallet RPC server (createCantonServer)         <- wallet implements handlers
 ```
+
+`@sigilry/dapp` ships `WindowTransport` (`postMessage`) and `WalletConnectTransport`. Other channels such as HTTP or WebSocket are supported by implementing the `RpcTransport` interface yourself; see [Transports](https://sigilry.org/concepts/transports/).
 
 ## Installation
 
@@ -50,7 +59,7 @@ Both packages publish 3.x on `latest`. The `next` tag is frozen on the old 2.0 p
 ## Partner guides
 
 - [Connect to Send Connect testnet](https://sigilry.org/guides/send-connect-testnet/) — extension installation, network selection, and wallet URLs.
-- [Verify signMessage](https://sigilry.org/guides/verify-sign-message/) — the Send Connect extension's hex DER format, WebCrypto verification with the active account key, and delegated-key limits. Send WalletConnect currently returns 64-byte hex `r‖s` with `fingerprint` and `publicKey`; Send's DER unification change (`ba1bc3ecd` in canton-monorepo) is pending and unreleased.
+- [Verify signMessage](https://sigilry.org/guides/verify-sign-message/) — the Send Connect extension's hex DER format, WebCrypto verification with the active account key, and delegated-key limits. Send source implements hex DER and signer metadata for extension and WalletConnect message signing; deployed behavior requires the supported wallet/release contract. Wallet pages, extensions, and SDKs deploy independently; signature-only responses remain supported.
 - [Read holdings](https://sigilry.org/guides/read-holdings/) — query token holdings through `ledgerApi`; submit commands with `prepareExecute`.
 
 ## Development
@@ -73,6 +82,7 @@ yarn install
 yarn build
 yarn test
 yarn typecheck
+yarn check
 ```
 
 `yarn build` and `yarn test` exclude the demo app and docs package.

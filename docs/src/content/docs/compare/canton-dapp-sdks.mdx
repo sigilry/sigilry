@@ -1,0 +1,96 @@
+---
+title: Choosing a Canton dApp SDK
+description: A sourced comparison of Sigilry, the Canton dApp SDK, PartyLayer, and the Console Wallet dApp SDK.
+---
+
+Choose the integration layer that fits the application: Sigilry's typed provider toolkit, DA's wallet-discovery SDK, PartyLayer's native provider with an adapter bridge and UI components, or a Console-focused SDK. These are different documented integration surfaces, not a ranking. [Sigilry][S], [Canton dApp SDK][D], [PartyLayer][P], [Console][C].
+
+## Scope and versions
+
+Snapshot checked **2026-10-05** with `npm view`:
+
+- Sigilry: [`@sigilry/dapp` 3.4.0][S-meta], [`@sigilry/react` 3.2.2][S-react-meta], and [`@sigilry/cli` 0.3.3][S-cli-meta].
+- DA: [`@canton-network/dapp-sdk` 1.7.1][D-meta]. This is the official Canton dApp SDK linked from [Canton's introduction to CIP-0103][D-official] and documented in the [Canton developer docs][D].
+- PartyLayer: [`@partylayer/sdk` 0.19.0][P-meta]. The cells below describe documentation at [source commit `c0d6ddd`][P], not verified behavior of that npm release or every PartyLayer package.
+- Console: [`@console-wallet/dapp-sdk` 2.4.0][C-meta], with its [versioned README][C] and [distributed type declarations][C-types].
+
+Sigilry source links are pinned to public mirror commit `c264b6e`; DA source links are pinned to `d8b41d9`. Website documentation describes the pages inspected on the snapshot date and can change independently of npm releases.
+
+**Documented** means a maintainer describes the capability. **Unknown** means the named capability was not established by the cited sources; it does not mean unsupported. This comparison is based on documentation, source, and package metadata. It does not establish interoperability, conformance certification, relative performance, or successful installation in a particular application.
+
+## Documented capabilities
+
+On narrow screens, scroll the table horizontally to see all four SDKs.
+
+| Capability                             | Sigilry                                                                                                                                                                                                                                        | `@canton-network/dapp-sdk` (DA)                                                                                                                        | PartyLayer                                                                                                                                                        | `@console-wallet/dapp-sdk`                                                                                                            |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Main integration surface / CIP-0103    | Typed CIP-0103 provider and RPC client/server toolkit. [Docs][S]                                                                                                                                                                               | High-level API over CIP-0103 providers and adapters. [Docs][D]                                                                                         | Native CIP-0103 provider plus adapter-based client/bridge. [Provider][P-provider]                                                                                 | Console Wallet API; README states CIP-0103 compatibility. [README][C]                                                                 |
+| Licence / inspectable implementation   | MIT; public source. [Metadata][S-meta], [source][S-source]                                                                                                                                                                                     | Apache-2.0; public source. [Metadata][D-meta], [source][D-source]                                                                                      | MIT; public source. [README][P]                                                                                                                                   | ISC; distributed JS/types inspectable. Public development repository: **unknown** from metadata. [Metadata][C-meta], [types][C-types] |
+| Wallet discovery and selection         | Discovery store, provider selection, React `WalletPicker`. [dApp][S], [React][S-react]                                                                                                                                                         | Announced browser wallets, remote wallets, configurable adapters; built-in picker Web Component. [Discovery][D-discovery], [README][D-source]          | Injected-provider discovery, registry/adapters, React modal and `ConnectButton`. [Provider][P-provider], [React][P-react], [README][P]                            | Console extension availability; local, remote, or combined target. General multi-wallet picker: **unknown**. [README][C]              |
+| Transport / remote connection          | Documented `WindowTransport` and custom `RpcTransport` seam; `WalletConnectTransport` exported in inspected source. [Docs][S-transport], [exports][S-exports]                                                                                  | Browser postMessage, remote HTTP/SSE; optional WalletConnect adapter. [README][D-source], [discovery][D-discovery]                                     | Native sync/async flows; opt-in WalletConnect adapter. Legacy provider bridge is sync-only. [README][P], [adapter][P-wc]                                          | Browser postMessage and mobile QR/deep-link flow. Generic WalletConnect adapter: **unknown**. [README][C]                             |
+| React integration                      | `@sigilry/react` context/hooks using TanStack Query. [Docs][S-react]                                                                                                                                                                           | Framework-agnostic SDK and picker usable in React. Dedicated React hooks package: **unknown** in inspected SDK docs. [Overview][D], [README][D-source] | Hooks/components; separate TanStack Query entry point. [React][P-react]                                                                                           | Typed application SDK. Dedicated React hooks package: **unknown** in inspected README/exports. [README][C], [types][C-types]          |
+| Ledger reads / application data        | `ledgerApi`; React ledger and active-contract hooks. [dApp][S], [React][S-react]                                                                                                                                                               | Wallet-session JSON Ledger API proxy. [Overview][D]                                                                                                    | Native-provider `ledgerApi`; legacy bridge differs. Query hooks wrap application-supplied fetchers. [README][P], [React][P-react]                                 | `ledgerApi`, contract, balance, and history methods. [README][C], [types][C-types]                                                    |
+| Daml types / action abstraction        | CLI wraps alpha DAR-to-TypeScript tooling; inspected source requires Java and pins the DPM SDK. Generated choice-action workflow: **unknown** as a shipped end-to-end integration here. [CLI][S-cli], [codegen][S-codegen], [config][S-config] | Typed SDK calls. Automatic DAR-to-typed create/exercise binding generation: **unknown** in inspected SDK README. [README][D-source]                    | `requestTransfer` intent API, gated by wallet capability. Generic generated DAR choice bindings: **unknown** in this transfer guide. [Transfer guide][P-transfer] | Typed request/response exports. Automatic DAR-to-typed choice binding generation: **unknown** in inspected README. [README][C]        |
+| Account / status / transaction updates | Provider events and React subscription helpers. [dApp][S], [React][S-react]                                                                                                                                                                    | Status, account, and transaction subscriptions. [README][D-source]                                                                                     | Provider and client events, plus the legacy provider bridge. [Provider][P-provider], [README][P]                                                                  | Account, connection, and transaction callbacks. [README][C]                                                                           |
+
+Console documents wallet-side encryption/decryption and batch transaction signing. [Console README][C]. Message signing is also documented by [Sigilry][S], [DA][D], and [PartyLayer][P]; this table does not compare algorithms or encodings. Include Console's additional signing APIs in an evaluation when the application needs them.
+
+## Choose by required surface
+
+The following fit guidance is an editorial interpretation of the documented surfaces, not a result of comparative testing:
+
+- Evaluate **Sigilry** when the application needs explicit typed RPC/provider building blocks, custom transports, and its React layer. [dApp][S], [transports][S-transport], [React][S-react].
+- Evaluate **DA's official SDK** when the framework-independent wallet picker and remote-wallet adapters fit the onboarding flow. Its Web Component supplies a documented UI without requiring React-specific hooks. [Canton introduction][D-official], [README][D-source], [discovery][D-discovery].
+- Evaluate **PartyLayer** when the native provider, adapter bridge, and ready-made React modal/button fit. Select the native or bridge path deliberately: the inspected README documents different async and ledger behavior. [Provider][P-provider], [README][P], [React][P-react].
+- Evaluate **Console's SDK** for Console-specific accounts, queries, mobile QR/deep links, and its additional signing/encryption APIs. [README][C].
+
+## Separate SDK capability from wallet capability
+
+An adapter or transport does not establish that every wallet supports every method or network. PartyLayer explicitly gates typed transfers by wallet capability; DA documents adapter registration and discovery configuration. [PartyLayer transfer guide][P-transfer], [DA discovery][D-discovery].
+
+For the actual package, wallet version, and network, record the results of this integration checklist:
+
+1. Discover/select the intended wallet and connect.
+2. Observe account, network, and connection changes.
+3. Read application data through the intended ledger path.
+4. Request and verify a signed message using that wallet's documented algorithm, encoding, and key authorization rules.
+5. Handle user rejection and unsupported methods.
+6. Submit a representative transaction and observe completion or failure.
+7. Tear down listeners, disconnect, and test session restoration where offered.
+
+This checklist is proposed verification work; no results are asserted for the four SDKs here. A reproducible integration recipe should pin the package, wallet, and network versions and report these outcomes after it has been run.
+
+## Understand the type boundary
+
+Typed RPC envelopes, generated Daml record types, and generated action functions are separate layers. Sigilry documents typed provider/RPC calls and a CLI wrapping `dpm codegen-alpha-typescript`. Those sources alone do not establish a shipped workflow that generates a choice action from a DAR and executes it through a wallet. PartyLayer's documented transfer intent is another abstraction: the wallet receives a transfer request, subject to capability support. [Sigilry dApp][S], [CLI][S-cli], [codegen][S-codegen], [PartyLayer transfers][P-transfer].
+
+## Sources and corrections
+
+Capabilities change. Use the versioned metadata and pinned sources linked above, alongside current maintainer documentation. Send corrections with the relevant package version, public source, and a reproducible example through the [public Sigilry issue tracker][S-issues].
+
+[S]: https://sigilry.org/packages/dapp
+[S-react]: https://sigilry.org/packages/react
+[S-cli]: https://sigilry.org/packages/cli
+[S-transport]: https://sigilry.org/concepts/transports
+[S-meta]: https://registry.npmjs.org/@sigilry%2Fdapp/3.4.0
+[S-react-meta]: https://registry.npmjs.org/@sigilry%2Freact/3.2.2
+[S-cli-meta]: https://registry.npmjs.org/@sigilry%2Fcli/0.3.3
+[S-source]: https://github.com/sigilry/sigilry/blob/c264b6e83b43f4c18818609bf8d8daaf1d7751fd/packages/dapp/package.json
+[S-exports]: https://github.com/sigilry/sigilry/blob/c264b6e83b43f4c18818609bf8d8daaf1d7751fd/packages/dapp/src/transport/index.ts
+[S-codegen]: https://github.com/sigilry/sigilry/blob/c264b6e83b43f4c18818609bf8d8daaf1d7751fd/packages/cli/src/codegen.ts
+[S-config]: https://github.com/sigilry/sigilry/blob/c264b6e83b43f4c18818609bf8d8daaf1d7751fd/packages/cli/src/config.ts
+[S-issues]: https://github.com/sigilry/sigilry/issues
+[D]: https://docs.canton.network/sdks-tools/sdks/dapp-sdk/overview
+[D-discovery]: https://docs.canton.network/sdks-tools/sdks/dapp-sdk/guides/wallet-discovery
+[D-source]: https://github.com/canton-network/wallet/blob/d8b41d9a375f66c994442f20c930c83653559b07/sdk/dapp-sdk/README.md
+[D-meta]: https://registry.npmjs.org/@canton-network%2Fdapp-sdk/1.7.1
+[D-official]: https://www.canton.network/blog/scaling-canton-apps-with-a-standard-for-wallet-and-app-interoperability
+[P]: https://github.com/PartyLayer/PartyLayer/blob/c0d6ddd9caa44e508d53b1586638011dbc6ee0a5/README.md
+[P-meta]: https://registry.npmjs.org/@partylayer%2Fsdk/0.19.0
+[P-provider]: https://github.com/PartyLayer/PartyLayer/blob/c0d6ddd9caa44e508d53b1586638011dbc6ee0a5/packages/provider/README.md
+[P-react]: https://github.com/PartyLayer/PartyLayer/blob/c0d6ddd9caa44e508d53b1586638011dbc6ee0a5/packages/react/README.md
+[P-wc]: https://github.com/PartyLayer/PartyLayer/blob/c0d6ddd9caa44e508d53b1586638011dbc6ee0a5/packages/adapters/walletconnect/README.md
+[P-transfer]: https://github.com/PartyLayer/PartyLayer/blob/c0d6ddd9caa44e508d53b1586638011dbc6ee0a5/docs/typed-transfer.md
+[C]: https://unpkg.com/@console-wallet/dapp-sdk@2.4.0/README.md
+[C-meta]: https://registry.npmjs.org/@console-wallet%2Fdapp-sdk/2.4.0
+[C-types]: https://unpkg.com/@console-wallet/dapp-sdk@2.4.0/dist/esm/index.d.ts

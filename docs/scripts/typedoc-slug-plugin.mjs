@@ -23,7 +23,6 @@ export function load(app) {
         "api-reference/" +
         page.url
           .replace(/\.md$/, "") // Remove .md extension
-          .replace(/README$/, "readme") // Normalize README to lowercase
           .toLowerCase(); // Lowercase for consistent URLs
 
       // Add the slug to frontmatter

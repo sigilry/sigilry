@@ -214,7 +214,7 @@ this section specs the React tier built on it.
 - [x] `useDiscovery`, `WalletPicker`, `WalletPickerProps` exported from `src/index.ts`; `DiscoveredWallet` + `SpliceProviderInfo` re-exported from `@sigilry/dapp/discovery`.
 - [x] `CantonReactProvider` accepts the controlled `provider` prop with injected-fallback default.
 - [x] `useCanton()` exposes `onStatusChanged` and `onConnected`.
-- [x] End-to-end discovery verified against a published build: `canton-monorepo/apps/playwright/tests/extension/dapp-discovery.spec.ts` (discovers by `rdns` via the SDK and uses the discovered provider).
+- [x] Maintainer-recorded end-to-end discovery against a published build (private consumer evidence, not a public SDK prerequisite): `canton-monorepo/apps/playwright/tests/extension/dapp-discovery.spec.ts` (discovers by `rdns` via the SDK and uses the discovered provider).
 - [x] Shipped in `@sigilry/dapp@3.1.0` / `@sigilry/react@3.1.0` (republished `@sigilry/react@3.1.1`).
 
 ## Related Specs
@@ -223,4 +223,5 @@ this section specs the React tier built on it.
 - `packages/dapp/SPEC.md`
 - `packages/canton-json-api/SPEC.md`
 - Downstream consumer: Send webext (`canton-monorepo/apps/webext/SPEC.md`, section "Connection State (Single-Writer)", `REQ-WEBEXT-CSTATE-*`).
-- Cross-repo coordination (external): `_work/2744-announce-provider-cip103/SPEC-connection-state.md`.
+- SDK discovery coverage: `packages/dapp/__tests__/discovery-{provider,store,utils}.test.ts`; connection-state contract: this package's "Connection State Bootstrap" section.
+- Private consumer tests in canton-monorepo are maintainer evidence, not a runnable public SDK prerequisite. Consumer adoption is recorded in that repository's manifests and lockfile.

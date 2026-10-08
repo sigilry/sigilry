@@ -54,7 +54,7 @@ This package follows standard semver via changesets. The `SPLICE_VERSION` export
 | Package Version | Splice Version |
 | --------------- | -------------- |
 | 0.3.x           | 0.5.4          |
-| 0.4.0           | 0.5.14         |
+| 0.4.x           | 0.5.14         |
 
 ## Source and Licensing
 

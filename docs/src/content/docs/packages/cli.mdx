@@ -3,6 +3,8 @@ title: "@sigilry/cli"
 description: CLI and programmatic API for generating TypeScript from DAML DARs.
 ---
 
+import Snippet from "../../../components/Snippet.astro";
+
 `@sigilry/cli` generates TypeScript types from DAML DAR files using `dpm codegen-alpha-typescript`.
 
 ## Install
@@ -17,37 +19,29 @@ yarn add -D @sigilry/cli
 sigilry init
 ```
 
-This creates a `sigilry.config.ts` file:
+This creates a `sigilry.config.ts` file in the current directory. It refuses to overwrite an existing
+config unless you pass `--force` (`-f`). The generated file looks like this, with your DAR paths filled in:
 
-```ts
-import { defineConfig } from "@sigilry/cli/config";
-
-export default defineConfig({
-  dars: ["./path/to/your.dar"],
-  output: "./src/generated",
-  cleanup: true,
-  watch: false,
-});
-```
+<Snippet path="cli/config.ts" title="sigilry.config.ts" />
 
 ### Using Splice DARs
 
-For Canton Network / Splice development, use [`@sigilry/splice-dars`](./splice-dars/) instead of managing DAR files manually:
+For Canton Network / Splice development, use [`@sigilry/splice-dars`](../splice-dars/) instead of managing DAR files manually:
 
-```ts
-import { defineConfig } from "@sigilry/cli/config";
-import { spliceDars } from "@sigilry/splice-dars";
-
-export default defineConfig({
-  dars: [spliceDars.amulet, spliceDars.apiTokenHolding],
-  output: "./src/generated",
-});
-```
+<Snippet path="cli/config-splice-dars.ts" title="sigilry.config.ts" />
 
 ## Generate types
 
 ```bash
 sigilry codegen
+```
+
+Without `--config`, `codegen` looks for `sigilry.config.ts`, `sigilry.config.mts`, `sigilry.config.js`,
+or `sigilry.config.mjs` in the current directory and then each parent directory. Point it at a
+specific file with `--config <path>` (`-c`):
+
+```bash
+sigilry codegen --config ./config/sigilry.config.ts
 ```
 
 ## Watch mode
@@ -64,27 +58,17 @@ sigilry codegen --watch
 - `output`: output directory (default `./src/generated`).
 - `cleanup`: clean output directory before generation (default `true`).
 - `watch`: enable watch mode (default `false`).
+- `dpmSdkVersion`: dpm SDK version used for codegen (default `3.4.9`, the last SDK that ships
+  `codegen-alpha-typescript`). A non-empty `DPM_SDK_VERSION` environment variable takes precedence.
 
 ## Programmatic API
 
-```ts
-import { generateTypes, loadConfig } from "@sigilry/cli";
-
-async function generate() {
-  const { config } = await loadConfig();
-  const result = await generateTypes(config);
-
-  if (!result.success) {
-    throw new Error(result.error);
-  }
-
-  return result;
-}
-
-generate();
-```
+<Snippet path="cli/programmatic.ts" />
 
 ## Requirements
 
 - Node.js 18.19+.
-- DAML SDK installed so `dpm` is available in PATH.
+- DAML SDK installed so `dpm` is available in PATH, or `DPM_BIN` set to the `dpm` executable path.
+- A Java runtime (`java` on PATH, or `JAVA_HOME` / `JAVA_BIN` set); dpm runs the generator with `java -jar`.
+
+Codegen defaults to DPM SDK 3.4.9. The `dpmSdkVersion` config selects a pin; a nonempty `DPM_SDK_VERSION` environment override takes precedence. Consult `packages/cli/src/dpm.ts` for executable resolution and preflight behavior. A pin does not establish artifact availability. This wrapper's output contract differs from canton-clients' LF metadata generator; switching generators is an explicit migration. OpenRPC-to-Zod generation belongs to `@sigilry/dapp`'s `codegen` script.

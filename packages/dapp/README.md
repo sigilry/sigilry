@@ -18,195 +18,73 @@ Partner guides: [Send Connect testnet](https://sigilry.org/guides/send-connect-t
 
 This package provides the building blocks for dApp ↔ wallet extension communication:
 
-- **SpliceProvider Interface**: CIP-103 dApp API surface (request/on/removeListener — the EIP-1193 object shape that CIP-103 adopts)
-- **Message Types**: Typed events and schemas for the CIP-103 JSON-RPC envelope
-- **Transport Layer**: Window postMessage transport implementation
-- **RPC Utilities**: Client/server factories with CIP-103-aligned error codes
-- **Zod Schemas**: Runtime validation generated from the CIP-103 OpenRPC spec
+- **SpliceProvider interface**: CIP-103 dApp API surface (`request`/`on`/`removeListener` — the EIP-1193 object shape that CIP-103 adopts), plus the `SpliceProviderBase` class for implementers
+- **Provider discovery**: EIP-6963-style multi-wallet discovery via `@sigilry/dapp/discovery`
+- **Transports**: `WindowTransport` (`postMessage`) and `WalletConnectTransport`; implement `RpcTransport` for other channels
+- **RPC utilities**: client/server factories with CIP-103-aligned error codes (`RpcErrorCode`)
+- **Zod schemas**: runtime validation generated from the CIP-103 OpenRPC spec (`@sigilry/dapp/schemas`)
 
 ## Usage
 
-### dApp Integration
+Call the injected provider. `window.canton` is typed only after importing `@sigilry/dapp/browser-globals`, and it is optional because no wallet may be installed:
 
 ```typescript
-import { SpliceProviderBase, WindowTransport } from "@sigilry/dapp";
+import "@sigilry/dapp/browser-globals";
 
-// Use the injected provider
 if (window.canton) {
   const status = await window.canton.request({ method: "status" });
   console.log("Connected:", status.connection.isConnected);
 }
 ```
 
-### Extension Development
+Discover every announced wallet instead of assuming a single `window.canton`:
 
 ```typescript
-import { createCantonServer, WalletEvent, isSpliceMessage, jsonRpcResponse } from "@sigilry/dapp";
+import { createDiscoveryStore } from "@sigilry/dapp/discovery";
 
-// Create RPC server with handlers
-const server = createCantonServer({
-  status: async () => ({
-    provider: { id: "send-extension", providerType: "browser" },
-    connection: { isConnected: true, isNetworkConnected: true },
-  }),
-  connect: async () => {
-    /* ... */
+const store = createDiscoveryStore();
+const unsubscribe = store.subscribe(
+  (wallets) => {
+    const provider = wallets[0]?.getProvider();
+    provider?.on("statusChanged", (status) => console.log(status));
   },
-  // ... other handlers
-});
-
-// Handle incoming messages
-browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (!isSpliceMessage(message)) return false;
-
-  if (message.type === WalletEvent.SPLICE_WALLET_REQUEST) {
-    server.handleRequest(message.request.method, message.request.params).then((result) =>
-      sendResponse({
-        type: WalletEvent.SPLICE_WALLET_RESPONSE,
-        response: jsonRpcResponse(message.request.id, result),
-      }),
-    );
-    return true; // async response
-  }
-});
+  { emitImmediately: true },
+);
 ```
 
-### Custom Provider Implementation
+The [package guide](https://sigilry.org/packages/dapp/) covers the typed client, the extension-side RPC server, discovery, push events, and generated schemas. The [API reference](https://sigilry.org/api-reference/readme/) lists every export.
 
-```typescript
-import { SpliceProviderBase, WindowTransport } from "@sigilry/dapp";
-import type { ConnectedEvent, StatusChangedEvent } from "@sigilry/dapp/schemas";
+## Entry points
 
-class MyProvider extends SpliceProviderBase {
-  private transport: WindowTransport;
-
-  constructor() {
-    super();
-    this.transport = new WindowTransport(window, { timeout: 30000 });
-  }
-
-  async request<T>(args: { method: string; params?: unknown }): Promise<T> {
-    const response = await this.transport.submit(args);
-    if ("error" in response) throw response.error;
-    return response.result as T;
-  }
-
-  // CIP-103 §4.2.2 push events. Call these from your transport / wallet
-  // backend when authentication or network state changes.
-  signalConnected(event: ConnectedEvent): void {
-    this.emitConnected(event); // login-flow completion (one-shot)
-  }
-
-  signalStatusChanged(event: StatusChangedEvent): void {
-    this.emitStatusChanged(event); // ongoing status transitions (disconnects route through here per §4.2.2:216)
-  }
-}
-```
-
-## API Reference
-
-### Exports
-
-```typescript
-// Main entry point
-import {
-  WalletEvent,
-  SpliceProviderBase,
-  WindowTransport,
-  createCantonServer,
-  createCantonClient,
-  isSpliceMessage,
-  jsonRpcRequest,
-  jsonRpcResponse,
-  RpcErrorCode,
-  rpcError,
-} from "@sigilry/dapp";
-
-// Submodule imports
-import { WalletEvent, isSpliceMessage } from "@sigilry/dapp/messages";
-import { SpliceProviderBase } from "@sigilry/dapp/provider";
-import { createCantonServer, rpcError } from "@sigilry/dapp/rpc";
-import { WindowTransport } from "@sigilry/dapp/transport";
-import * as schemas from "@sigilry/dapp/schemas";
-```
-
-### SpliceProvider Interface
-
-```typescript
-interface SpliceProvider {
-  request<T>(args: { method: string; params?: unknown }): Promise<T>;
-  on(event: string, listener: Function): SpliceProvider;
-  emit(event: string, ...args: unknown[]): boolean;
-  removeListener(event: string, listener: Function): SpliceProvider;
-}
-
-interface ExtendedSpliceProvider extends SpliceProvider {
-  isConnected(): boolean;
-  removeAllListeners(event?: string): SpliceProvider;
-  listenerCount(event: string): number;
-}
-```
-
-### WalletEvent Enum
-
-```typescript
-enum WalletEvent {
-  SPLICE_WALLET_REQUEST = "SPLICE_WALLET_REQUEST",
-  SPLICE_WALLET_RESPONSE = "SPLICE_WALLET_RESPONSE",
-  SPLICE_WALLET_EXT_READY = "SPLICE_WALLET_EXT_READY",
-  SPLICE_WALLET_EXT_ACK = "SPLICE_WALLET_EXT_ACK",
-  SPLICE_WALLET_EXT_OPEN = "SPLICE_WALLET_EXT_OPEN",
-  SPLICE_WALLET_IDP_AUTH_SUCCESS = "SPLICE_WALLET_IDP_AUTH_SUCCESS",
-}
-```
+| Import path                              | Contents                                                                         |
+| ---------------------------------------- | -------------------------------------------------------------------------------- |
+| `@sigilry/dapp`                          | Re-exports `messages`, `provider`, `rpc`, `transport`; `CANTON_DAPP_API_VERSION` |
+| `@sigilry/dapp/browser-globals`          | Side-effect import that types `window.canton?: SpliceProvider`                   |
+| `@sigilry/dapp/discovery`                | `requestProviders`, `announceProvider`, `createDiscoveryStore`, `createProvider` |
+| `@sigilry/dapp/messages`                 | `WalletEvent`, message types, `isSpliceMessage`, JSON-RPC helpers                |
+| `@sigilry/dapp/messages/runtime-schemas` | Extension-internal runtime message schemas (background ↔ injected provider)      |
+| `@sigilry/dapp/provider`                 | `SpliceProvider`, `SpliceProviderBase`, typed request types                      |
+| `@sigilry/dapp/rpc`                      | `createCantonClient`, `createCantonServer`, `RpcErrorCode`, `RpcClientError`     |
+| `@sigilry/dapp/schemas`                  | Generated Zod schemas and types                                                  |
+| `@sigilry/dapp/transport`                | `WindowTransport`, `WalletConnectTransport`, transport types                     |
 
 ### RPC Methods
 
-| Method                  | Params                       | Result                                 | Description                                                                                   |
-| ----------------------- | ---------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `status`                | none                         | `StatusEvent`                          | Get connection status                                                                         |
-| `connect`               | none                         | `ConnectResult`                        | Connect and report whether the wallet authorized access                                       |
-| `disconnect`            | none                         | `null`                                 | Disconnect session                                                                            |
-| `isConnected`           | none                         | `ConnectResult`                        | Check whether the wallet is connected                                                         |
-| `getActiveNetwork`      | none                         | `Network`                              | Get active network                                                                            |
-| `listAccounts`          | none                         | `Wallet[]`                             | Get authorized accounts                                                                       |
-| `getPrimaryAccount`     | none                         | `Wallet`                               | Get the primary account                                                                       |
-| `prepareExecute`        | `JsPrepareSubmissionRequest` | `null`                                 | Prepare, sign, and execute transaction                                                        |
-| `prepareExecuteAndWait` | `JsPrepareSubmissionRequest` | `{ tx: TxChangedExecutedEvent }`       | Execute transaction and wait for completion                                                   |
-| `signMessage`           | `{ message: string }`        | `{ signature: string }`                | Sign an arbitrary message                                                                     |
-| `ledgerApi`             | `LedgerApiRequest`           | `Record<string, unknown> \| unknown[]` | Returns the Canton Ledger API JSON response as an object or array, depending on the endpoint. |
-| `accountsChanged`       | none                         | `AccountsChangedEvent`                 | Subscribe to account changes                                                                  |
-| `txChanged`             | none                         | `TxChangedEvent`                       | Subscribe to transaction changes                                                              |
-| `statusChanged`         | none                         | `StatusChangedEvent`                   | Subscribe to provider status transitions (CIP-103 §4.2.2; disconnects route through here)     |
-| `connected`             | none                         | `ConnectedEvent`                       | Subscribe to login-flow completion (CIP-103 §4.2.2; identical payload to `statusChanged`)     |
+| Method                  | Params                       | Result                                 | Description                                                                                                                |
+| ----------------------- | ---------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `status`                | none                         | `StatusEvent`                          | Get connection status                                                                                                      |
+| `connect`               | none                         | `ConnectResult`                        | Connect and report whether the wallet authorized access                                                                    |
+| `disconnect`            | none                         | `null`                                 | Disconnect session                                                                                                         |
+| `isConnected`           | none                         | `ConnectResult`                        | Check whether the wallet is connected                                                                                      |
+| `getActiveNetwork`      | none                         | `Network`                              | Get active network                                                                                                         |
+| `listAccounts`          | none                         | `Wallet[]`                             | Get authorized accounts                                                                                                    |
+| `getPrimaryAccount`     | none                         | `Wallet`                               | Get the primary account                                                                                                    |
+| `prepareExecute`        | `JsPrepareSubmissionRequest` | `null`                                 | Prepare, sign, and execute transaction                                                                                     |
+| `prepareExecuteAndWait` | `JsPrepareSubmissionRequest` | `{ tx: TxChangedExecutedEvent }`       | Execute transaction and wait for completion                                                                                |
+| `signMessage`           | `{ message: string }`        | `SignMessageResult`                    | Sign an arbitrary message; `signature` plus optional `signedBy`, `publicKey`, `signingAlgorithmSpec`, `format`, `encoding` |
+| `ledgerApi`             | `LedgerApiRequest`           | `Record<string, unknown> \| unknown[]` | Returns the Canton Ledger API JSON response as an object or array, depending on the endpoint.                              |
 
-### RPC Error Codes
-
-```typescript
-const RpcErrorCode = {
-  // Standard JSON-RPC 2.0 errors
-  PARSE_ERROR: -32700,
-  INVALID_REQUEST: -32600,
-  METHOD_NOT_FOUND: -32601,
-  INVALID_PARAMS: -32602,
-  INTERNAL_ERROR: -32603,
-
-  // CIP-103 provider errors (inherited from EIP-1193)
-  USER_REJECTED: 4001,
-  UNAUTHORIZED: 4100,
-  UNSUPPORTED_METHOD: 4200,
-  DISCONNECTED: 4900,
-  CHAIN_DISCONNECTED: 4901,
-
-  // CIP-103 server errors (inherited from EIP-1474)
-  INVALID_INPUT: -32000,
-  RESOURCE_NOT_FOUND: -32001,
-  RESOURCE_UNAVAILABLE: -32002,
-  TRANSACTION_REJECTED: -32003,
-  METHOD_NOT_SUPPORTED: -32004,
-  LIMIT_EXCEEDED: -32005,
-};
-```
+Push events are delivered through `provider.on()` rather than request/response: `accountsChanged`, `txChanged`, `statusChanged` (CIP-103 §4.2.2; disconnects route through here), and `connected` (login-flow completion; identical payload to `statusChanged`).
 
 ### WindowTransport Options
 
@@ -214,24 +92,19 @@ const RpcErrorCode = {
 interface TransportOptions {
   timeout?: number; // Request timeout in ms (default: 30000)
   targetOrigin?: string; // postMessage target origin (default: '*')
+  target?: string; // Routing key for a specific wallet extension (default: undefined)
 }
 ```
 
 ## Generated Schemas
 
-Zod schemas are generated from OpenRPC specifications:
+Zod schemas are generated from the vendored OpenRPC specification:
 
 ```typescript
-import {
-  StatusEventSchema,
-  JsPrepareSubmissionRequestSchema,
-  TxChangedEventSchema,
-  type StatusEvent,
-  type JsPrepareSubmissionRequest,
-} from "@sigilry/dapp/schemas";
+import { StatusEventSchema, type StatusEvent } from "@sigilry/dapp/schemas";
 
-// Validate incoming data
-const parsed = StatusEventSchema.parse(data);
+declare const data: unknown;
+const status: StatusEvent = StatusEventSchema.parse(data);
 ```
 
 Regenerate schemas after spec changes:
@@ -245,20 +118,24 @@ yarn workspace @sigilry/dapp codegen
 ```
 packages/dapp/
 ├── api-specs/
-│   ├── openrpc-dapp-api.json    # Splice dApp API spec
+│   ├── openrpc-dapp-api.json    # CIP-103 dApp API spec (vendored)
 │   └── openrpc-user-api.json    # User API spec (referenced)
 ├── scripts/
 │   └── codegen.ts               # Schema generation script
 ├── src/
+│   ├── browser-globals.ts       # window.canton global typing (opt-in)
+│   ├── discovery/               # Provider discovery store, announce/request, createProvider
 │   ├── generated/
 │   │   └── schemas.ts           # Generated Zod schemas
 │   ├── messages/
 │   │   ├── events.ts            # WalletEvent enum
 │   │   ├── schemas.ts           # Message type validators
+│   │   ├── runtime-schemas.ts   # Extension runtime message schemas
 │   │   └── index.ts
 │   ├── provider/
 │   │   ├── interface.ts         # SpliceProvider interface
 │   │   ├── base.ts              # SpliceProviderBase class
+│   │   ├── typed-request.ts     # Typed request/result helpers
 │   │   └── index.ts
 │   ├── rpc/
 │   │   ├── client.ts            # RPC client factory
@@ -268,6 +145,7 @@ packages/dapp/
 │   ├── transport/
 │   │   ├── types.ts             # Transport interfaces
 │   │   ├── window.ts            # WindowTransport class
+│   │   ├── walletconnect.ts     # WalletConnectTransport class
 │   │   └── index.ts
 │   └── index.ts                 # Main exports
 └── package.json
@@ -304,8 +182,3 @@ The CIP-103 prose is the conceptual standard; where the prose and the OpenRPC JS
 ## Maintainers
 
 Originally developed for production use at [Send](https://send.it) and maintained by the Send team. Issues and contributions are accepted on the public mirror at [github.com/sigilry/sigilry](https://github.com/sigilry/sigilry).
-
-## Related
-
-- **Send Extension**: `apps/webext/` - Browser extension using this package
-- **Linear Issues**: SEND-78 (scaffold), SEND-77 (implementation)

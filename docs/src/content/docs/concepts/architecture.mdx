@@ -10,7 +10,7 @@ Sigilry implements [CIP-103](https://github.com/canton-foundation/cips/blob/main
 ```
 dApp UI
   -> @sigilry/react (hooks) or @sigilry/dapp (provider)
-  -> WindowTransport (postMessage)
+  -> WindowTransport (postMessage) or WalletConnectTransport
   -> Wallet extension (RPC server)
   -> Canton Ledger API / DAML
 
@@ -20,7 +20,7 @@ Developer tooling
 
 ## Responsibilities
 
-- **dApp**: Calls `window.canton.request({ method, params })` and reacts to CIP-103 events.
+- **dApp**: Calls `request({ method, params })` on `window.canton` or on a provider obtained through [discovery](../discovery/), and reacts to CIP-103 events.
 - **Provider**: Implements the CIP-103 dApp API. Object shape (`request`, `on`, `removeListener`) follows the EIP-1193 pattern that CIP-103 adopts.
 - **RPC server**: Validates params with Zod schemas generated from the CIP-103 OpenRPC spec and routes to handlers.
 - **Transport**: Moves requests and responses between contexts.
@@ -32,7 +32,7 @@ Developer tooling
 2. Transport serializes the message (for example, `postMessage`).
 3. Extension receives the request and routes it through `createCantonServer`.
 4. The server validates params and calls the handler.
-5. Response is returned to the dApp and validated by the client.
+5. Response is returned to the dApp. Results are typed from the generated schemas but are not runtime-validated on receipt (see [CIP-103 Conformance](../cip-103-conformance/#per-method-conformance)).
 
 ## Versioning and specs
 

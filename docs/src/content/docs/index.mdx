@@ -1,7 +1,27 @@
 ---
 title: Sigilry
 description: Canton Network dApp SDK for CIP-0103 wallet connections, with TypeScript providers, React hooks, and Send Connect integration guides.
+template: splash
+hero:
+  title: Connect Canton dApps to wallets
+  tagline: A typed CIP-103 provider, RPC client, and React hooks for Canton Network, built and used in production by Send.
+  image:
+    file: ../../assets/logo.svg
+  actions:
+    - text: Quick Start
+      link: /getting-started/quick-start/
+      icon: right-arrow
+    - text: Send Connect testnet
+      link: /guides/send-connect-testnet/
+      variant: secondary
+    - text: GitHub
+      link: https://github.com/sigilry/sigilry
+      icon: external
+      variant: minimal
 ---
+
+import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
+import Snippet from "../../components/Snippet.astro";
 
 Sigilry is a [CIP-103](https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md) compliant dApp connectivity library for Canton Network. It implements the CIP-103 dApp API as a typed JSON-RPC client/server pair, ships generated Zod schemas for runtime validation, and exposes React Query hooks for fast integration.
 
@@ -9,12 +29,48 @@ Install the stable SDK with `yarn add @sigilry/dapp@^3 @sigilry/react@^3`. Build
 
 Sigilry is built and maintained by [Send](https://send.it) and used in production by Send's Canton Network dApps.
 
+## Start here
+
+<CardGrid>
+  <LinkCard
+    title="Quick Start"
+    href="getting-started/quick-start/"
+    description="Connect to an installed wallet extension and make your first CIP-103 request."
+  />
+  <LinkCard
+    title="Demo App"
+    href="getting-started/demo-app/"
+    description="Run the full DAML → codegen → React flow locally, no extension required."
+  />
+  <LinkCard
+    title="Send Connect testnet"
+    href="guides/send-connect-testnet/"
+    description="Install Send Connect, select Testnet, and verify the network from your dApp."
+  />
+  <LinkCard
+    title="CIP-103 Conformance"
+    href="concepts/cip-103-conformance/"
+    description="Per-method conformance status, deviations, and versioning."
+  />
+</CardGrid>
+
 ## Packages
 
-- `@sigilry/dapp`: Core provider, RPC client and server, message schemas, and transports.
-- `@sigilry/react`: React Query powered hooks and `CantonReactProvider`.
-- `@sigilry/cli`: CLI and programmatic API for generating TypeScript types from DAML DARs.
-- `@sigilry/canton-json-api`: Generated Canton JSON API v2 types and Zod schemas for typed ledger endpoint contracts.
+<CardGrid>
+  <Card title="@sigilry/dapp" icon="seti:typescript">
+    Core provider, RPC client and server, message schemas, and transports. [Usage](packages/dapp/)
+  </Card>
+  <Card title="@sigilry/react" icon="seti:react">
+    React Query powered hooks and `CantonReactProvider`. [Usage](packages/react/)
+  </Card>
+  <Card title="@sigilry/cli" icon="seti:shell">
+    CLI and programmatic API for generating TypeScript types from DAML DARs. [Usage](packages/cli/)
+  </Card>
+  <Card title="@sigilry/canton-json-api" icon="seti:json">
+    Generated Canton JSON API v2 types and Zod schemas for typed ledger endpoint contracts.
+    [Usage](packages/canton-json-api/)
+  </Card>
+</CardGrid>
 
 ## New to Canton?
 
@@ -63,18 +119,7 @@ hood. See the [@sigilry/cli](packages/cli/) page for the full configuration refe
 
 ## Minimal dApp request
 
-```ts
-async function connect() {
-  const status = await window.canton.request({ method: "status" });
-  if (!status.connection.isConnected) {
-    await window.canton.request({ method: "connect" });
-  }
-
-  const accounts = await window.canton.request({ method: "listAccounts" });
-  console.log("Accounts:", accounts);
-  return accounts;
-}
-```
+<Snippet path="start/connect.ts" />
 
 ## Ledger API Patterns
 
@@ -82,15 +127,7 @@ async function connect() {
 `useActiveContracts` call `/v2/state/ledger-end` and `/v2/state/active-contracts` to resolve the current
 offset and fetch active contracts.
 
-```ts
-await window.canton.request({
-  method: "ledgerApi",
-  params: {
-    requestMethod: "get",
-    resource: "/v2/state/ledger-end",
-  },
-});
-```
+<Snippet path="start/ledger-end.ts" />
 
 ## Architecture at a glance
 
@@ -105,8 +142,7 @@ dApp UI
 
 ## For AI agents
 
-- Sigilry is a [CIP-103](https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md)-compliant dApp connectivity library for Canton Network.
-- A concise integration summary is available at `llms.txt`.
-- All examples are copy-paste ready and include explicit CIP-103 method names.
-- See [CIP-103 Conformance](concepts/cip-103-conformance/) for the per-method conformance table.
-- Use the package pages for complete API coverage.
+- [`llms.txt`](/llms.txt) is a concise index; [`llms-full.txt`](/llms-full.txt) contains every page.
+- Every page is available as Markdown: append `.md` to its URL, request it with `Accept: text/markdown`, or follow its `<link rel="alternate" type="text/markdown">`.
+- Code samples on package, guide, and concept pages are compiled against the current packages in CI and include explicit CIP-103 method names.
+- See [CIP-103 Conformance](concepts/cip-103-conformance/) for the per-method conformance table and the [API Reference](api-reference/readme/) for full signatures.

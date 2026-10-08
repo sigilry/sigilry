@@ -25,6 +25,13 @@
       }
     },
     {
+      "files": ["docs/snippets/**"],
+      "rules": {
+        "no-console": "off",
+        "no-unused-vars": "off"
+      }
+    },
+    {
       "files": ["**/cli/**", "**/scripts/**", "**/*.cli.ts"],
       "rules": {
         "no-console": "off"

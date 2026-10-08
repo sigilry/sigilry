@@ -7,7 +7,7 @@ This guide covers every breaking change between `@sigilry/dapp@1.0.1` / `@sigilr
 
 ## tl;dr — action items
 
-1. **`connect()` now returns `ConnectResult`**, not `StatusEvent`. If you read `.provider`, `.network`, `.session`, or `.connection` off the `connect()` return value, replace those reads with a follow-up `provider.status()` call.
+1. **`connect()` now returns `ConnectResult`**, not `StatusEvent`. If you read `.provider`, `.network`, `.session`, or `.connection` off the `connect()` return value, replace those reads with a follow-up `provider.request({ method: "status" })` call.
 2. **New method `isConnected()`** — returns `ConnectResult` without user interaction. Safe to feature-detect; calling it on older wallet builds throws `-32601` "method not found".
 3. **Discovery is now EIP-6963-style** — listen for `canton:announceProvider`, dispatch `canton:requestProvider`. `window.canton` is still injected for backward compatibility.
 4. **Multi-wallet `target` routing** — each announcement carries a `target`; the injected provider tags requests with it so peer wallets can drop messages that aren't for them.
@@ -33,7 +33,7 @@ const result = await provider.connect();
 ### After (2.x)
 
 ```ts
-const result = await provider.connect();
+const result = await provider.request({ method: "connect" });
 // result: ConnectResult
 //   - isConnected: boolean
 //   - isNetworkConnected: boolean
@@ -50,7 +50,7 @@ const { connection, provider: p, network, session } = await provider.connect();
 if (connection.isConnected) useIt(p, network, session);
 
 // New
-const connectResult = await provider.connect();
+const connectResult = await provider.request({ method: "connect" });
 if (connectResult.isConnected) {
   const { provider: p, network, session } = await provider.request({ method: "status" });
   useIt(p, network, session);
@@ -76,7 +76,7 @@ try {
   const r = await provider.request({ method: "isConnected" });
 } catch (err) {
   if (err.code === -32601 /* Method not found */) {
-    // Older wallet — fall back to provider.status().connection.isConnected
+    // Older wallet — fall back to (await provider.request({ method: "status" })).connection.isConnected
   }
 }
 ```
@@ -86,13 +86,15 @@ try {
 The wallet now dispatches a `canton:announceProvider` CustomEvent at `document_start` with detail:
 
 ```ts
-{
-  id: string       // equal to browser.runtime.id for this extension
-  name: string
-  icon?: string    // data: URL or https URL
-  target: string   // used by the SDK to route messages to the right wallet
-}
+type AnnounceDetail = {
+  id: string; // equal to browser.runtime.id for this extension
+  name: string;
+  icon?: string; // data: URL or https URL
+  target: string; // used by the SDK to route messages to the right wallet
+};
 ```
+
+In 3.x the published `SpliceAnnounceDetail` also requires `rdns` and `uuid`, and `icon` is a required `data:image/…` URL; see [Provider Discovery](../../concepts/discovery/).
 
 dApps that want to enumerate installed wallets should listen for the event and/or dispatch `canton:requestProvider` to ask all wallets to re-announce:
 
@@ -173,15 +175,24 @@ await provider.request({
 
 ```ts
 // Before (1.x)
-const result = await provider.request({ method: 'ledgerApi', params: { ... } })
+const result = await provider.request({
+  method: "ledgerApi",
+  params: {
+    /* ... */
+  },
+});
 if (result?.response) {
-  const parsed = JSON.parse(result.response)        // ← wrapper no longer exists
-  useOffset(parsed.offset)
+  const parsed = JSON.parse(result.response); // ← wrapper no longer exists
+  useOffset(parsed.offset);
 }
 
 // After (2.x)
-const result = await provider.request({ method: 'ledgerApi', params: { ... } })
-useOffset(result.offset)                             // ← payload is result itself
+const result = await provider.request({
+  method: "ledgerApi",
+  params: { requestMethod: "get", resource: "/v2/state/ledger-end" },
+});
+// result is the Canton payload itself: Record<string, unknown> | unknown[]
+if (!Array.isArray(result)) useOffset(result.offset);
 ```
 
 This matches upstream `splice-wallet-kernel/core/wallet-gateway/*/src/dapp-api/controller.ts` and the CIP-0103 `LedgerApiResult` schema (`{additionalProperties: true}` — an arbitrary JSON record, no mandatory `response` key).
@@ -224,8 +235,9 @@ The React hook `useExerciseChoice` (and the underlying RPC params) uses `choice`
 // Before (1.x)
 exerciseChoice({ contractId, choiceName: "Archive", choiceArgument: {} });
 
-// After (2.x)
-exerciseChoice({ contractId, choice: "Archive", choiceArgument: {} });
+// After (2.x and later)
+const { exercise } = useExerciseChoice();
+exercise({ contractId, templateId, choice: "Archive", choiceArgument: {} });
 ```
 
 ## 8. `Provider.providerType` replaces `clientType`
@@ -255,7 +267,7 @@ The Phase 2 S3 audit compared the pinned upstream OpenRPC schema, the `@sigilry/
 
 ### Known rough edges (strict validators only)
 
-- `TxChangedEvent.completionOffset` / `TxChangedExecutedEvent.completionOffset` — currently accept any numeric value. Strict CIP-0103 validators should coerce or guard as an integer.
+- `TxChangedEvent.completionOffset` / `TxChangedExecutedEvent.completionOffset` — accepted any numeric value on the 2.0 pre-release line. The current generated schemas validate it as an integer (`z.number().int()`).
 - `DisclosedContract` entries — forwarded opaquely today; test your `prepareExecute*` flows against the specific wallet until explicit field handling lands.
 
 ## Error handling

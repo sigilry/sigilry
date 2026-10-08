@@ -10,12 +10,15 @@
     "preview": "astro preview",
     "preview:network": "astro preview --host 0.0.0.0 --allowed-hosts ${DOCS_ALLOWED_HOSTS:-localhost}",
     "docs:dev": "astro dev",
-    "docs:build": "astro build"
+    "docs:build": "astro build",
+    "typecheck": "tsc -p snippets --noEmit"
   },
   "dependencies": {
     "@0xbigboss/starlight-llms-txt": "0.8.0-beta.2",
     "@astrojs/sitemap": "^3.7.0",
     "@astrojs/starlight": "patch:@astrojs/starlight@npm%3A0.37.3#~/.yarn/patches/@astrojs-starlight-npm-0.37.3-9ae9eae44f.patch",
+    "@fontsource-variable/dm-sans": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "astro": "^5.16.11",
     "sharp": "^0.33.5",
     "starlight-typedoc": "^0.21.5",
@@ -24,6 +27,16 @@
     "typedoc-plugin-markdown": "^4.9.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260303.0"
+    "@cloudflare/workers-types": "^4.20260303.0",
+    "@sigilry/canton-json-api": "^1.0.3",
+    "@sigilry/cli": "workspace:*",
+    "@sigilry/dapp": "^3.4.0",
+    "@sigilry/react": "workspace:*",
+    "@sigilry/splice-dars": "workspace:*",
+    "@tanstack/react-query": "^5.79.0",
+    "@types/react": "^19.0.1",
+    "react": "19.2.4",
+    "starlight-links-validator": "~0.19.2",
+    "typescript": "^5.8.3"
   }
 }

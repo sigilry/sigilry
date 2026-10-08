@@ -28,9 +28,14 @@
       "project": ["src/**/*.{ts,tsx}"]
     },
     "docs": {
-      "entry": ["src/worker.ts"],
-      "project": ["src/**/*.{ts,astro,mdx}"],
-      "ignoreDependencies": ["sharp", "typedoc-plugin-frontmatter"]
+      "entry": ["src/worker.ts", "src/routeData.ts", "snippets/**/*.{ts,tsx}"],
+      "project": ["src/**/*.{ts,astro,mdx}", "snippets/**/*.{ts,tsx}"],
+      "ignoreDependencies": [
+        "sharp",
+        "typedoc-plugin-frontmatter",
+        "@fontsource-variable/dm-sans",
+        "@fontsource-variable/jetbrains-mono"
+      ]
     }
   },
   "ignore": ["**/dist/**", "**/node_modules/**", "**/__tests__/**", "**/generated/**"],

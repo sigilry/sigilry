@@ -3,6 +3,8 @@ title: "@sigilry/dapp"
 description: Core provider, RPC client and server, message schemas, and transports.
 ---
 
+import Snippet from "../../../components/Snippet.astro";
+
 `@sigilry/dapp` is the core package for [CIP-103](https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md)-compliant dApp ↔ wallet extension communication on Canton Network. It provides the CIP-103 provider interface (`SpliceProvider`), JSON-RPC client and server, transport abstractions, and Zod schemas generated from the CIP-103 OpenRPC spec.
 
 ## Install
@@ -17,98 +19,15 @@ Use the stable 3.x line on `latest`. Partner guides cover [Send Connect testnet]
 
 The wallet extension injects a CIP-103 provider at `window.canton`. The object shape (`request`, `on`, `removeListener`) is the EIP-1193 pattern that CIP-103 adopts; method names, params, results, and error codes are fixed by the CIP-103 spec.
 
-```ts
-async function connect() {
-  const status = await window.canton.request({ method: "status" });
-  if (!status.connection.isConnected) {
-    await window.canton.request({ method: "connect" });
-  }
-
-  const accounts = await window.canton.request({ method: "listAccounts" });
-  console.log(accounts);
-  return accounts;
-}
-
-const accounts = await window.canton.request({ method: "listAccounts" });
-console.log(accounts);
-```
+<Snippet path="start/connect.ts" />
 
 ## Typed client usage (custom transport)
 
-```ts
-import { createCantonClient, WindowTransport } from "@sigilry/dapp";
-
-async function getStatus() {
-  const transport = new WindowTransport(window, { timeout: 30000 });
-  const client = createCantonClient(transport);
-  return await client.status();
-}
-
-getStatus().then(console.log);
-```
+<Snippet path="dapp/client.ts" />
 
 ## Extension server usage
 
-```ts
-import {
-  createCantonServer,
-  createStubHandlers,
-  isSpliceMessageEvent,
-  jsonRpcResponse,
-  WalletEvent,
-} from "@sigilry/dapp";
-
-const server = createCantonServer({
-  ...createStubHandlers(),
-  status: async () => ({
-    provider: { id: "send-extension", providerType: "browser" },
-    connection: { isConnected: true, isNetworkConnected: true },
-  }),
-  connect: async () => ({
-    isConnected: true,
-    isNetworkConnected: true,
-  }),
-  disconnect: async () => null,
-  getActiveNetwork: async () => ({ networkId: "canton:localnet" }),
-  listAccounts: async () => [],
-  getPrimaryAccount: async () => ({
-    primary: true,
-    partyId: "alice::1220abc123",
-    status: "allocated",
-    hint: "alice",
-    publicKey: "ed25519:abc123",
-    namespace: "1220abc123",
-    networkId: "canton:localnet",
-    signingProviderId: "passkey",
-  }),
-  prepareExecute: async () => null,
-  prepareExecuteAndWait: async () => ({
-    tx: {
-      status: "executed",
-      commandId: "cmd-123",
-      payload: { updateId: "update-1", completionOffset: 1 },
-    },
-  }),
-  // Stub only: DER ECDSA integers r=1, s=1, encoded as hex; not a valid message signature.
-  signMessage: async () => ({ signature: "3006020101020101" }),
-  ledgerApi: async () => ({ events: [] }),
-});
-
-window.addEventListener("message", async (event) => {
-  if (!isSpliceMessageEvent(event)) return;
-  if (event.data.type !== WalletEvent.SPLICE_WALLET_REQUEST) return;
-
-  const response = await server.handleRequest(event.data.request.method, event.data.request.params);
-
-  window.postMessage(
-    {
-      type: WalletEvent.SPLICE_WALLET_RESPONSE,
-      response: jsonRpcResponse(event.data.request.id, response),
-    },
-    "*",
-  );
-});
-```
+<Snippet path="dapp/server.ts" />
 
 The server above uses stub handlers. A real Send Connect `signMessage` response contains a lowercase hex DER ECDSA P-256/SHA-256 signature. CIP-0103 leaves the encoding unspecified; other wallets can use different algorithms and encodings. See [Verify signMessage](/guides/verify-sign-message/) for a working verifier.
 
@@ -116,40 +35,11 @@ The server above uses stub handlers. A real Send Connect `signMessage` response 
 
 When more than one Canton wallet may be present, dApps should discover providers instead of reaching for `window.canton` directly. The discovery primitives live on the `@sigilry/dapp/discovery` subpath — they are intentionally **not** re-exported from the package root. See [Provider Discovery](/concepts/discovery/) for the model and fallback semantics.
 
-```ts
-import { createDiscoveryStore } from "@sigilry/dapp/discovery";
-
-const store = createDiscoveryStore();
-
-const unsubscribe = store.subscribe(
-  (wallets) => {
-    // wallets: readonly DiscoveredWallet[]
-    for (const w of wallets) console.log(w.info.rdns, w.info.name);
-  },
-  { emitImmediately: true },
-);
-
-// Build a live provider bound to a chosen wallet's transport target.
-const provider = store.findProvider({ rdns: "it.send.connect" })?.getProvider();
-
-// Teardown removes the window listeners.
-store.destroy();
-```
+<Snippet path="dapp/discovery-store.ts" />
 
 A wallet extension announces itself instead:
 
-```ts
-import { announceProvider } from "@sigilry/dapp/discovery";
-
-announceProvider({
-  id: "send-extension",
-  name: "Send Connect",
-  icon: "data:image/svg+xml;base64,...",
-  target: "send-connect",
-  rdns: "it.send.connect",
-  uuid: crypto.randomUUID(),
-});
-```
+<Snippet path="dapp/announce.ts" />
 
 Discovery subpath exports: `requestProviders`, `announceProvider`, `createDiscoveryStore`, `createProvider`, and the `DiscoveredWallet`, `SpliceProviderInfo`, `SpliceAnnounceDetail`, `DiscoveryStore`, and `TransportOptions` types. Pass a `TransportOptions` to `wallet.getProvider(opts?)` to tune the announced wallet's transport (e.g. a longer request `timeout`).
 
@@ -157,24 +47,7 @@ Discovery subpath exports: `requestProviders`, `announceProvider`, `createDiscov
 
 A `SpliceProvider` delivers the CIP-103 push events through the EIP-1193-style `.on()` API — the §4.2.2 sync events (`accountsChanged`, `statusChanged`, `txChanged`) plus the `connected` login event. `WindowTransport` carries notifications inbound on the same channel as requests (a notification is an id-less frame; the JSON-RPC `id` is the direction discriminant), and `SpliceProviderBase` auto-wires them to the provider's emitter — so a provider from `createProvider` (or the injected `window.canton`) emits with no extra setup.
 
-```ts
-const onStatus = (status) => {
-  /* ongoing status changes: network, session, disconnect */
-};
-provider.on("statusChanged", onStatus);
-provider.on("connected", (status) => {
-  /* login-flow completion (login event, not §4.2.2) */
-});
-provider.on("accountsChanged", (accounts) => {
-  /* active account / session changes */
-});
-provider.on("txChanged", (tx) => {
-  /* transaction updates */
-});
-
-// Unsubscribe:
-provider.removeListener("statusChanged", onStatus);
-```
+<Snippet path="dapp/events.ts" />
 
 On the wallet (server) side, emit notifications with `notify(event, payload, target?)` on the transport. Frames whose `target` does not match a provider's configured target are filtered out, so multi-wallet pages never cross-deliver events. See [CIP-103 Conformance](/concepts/cip-103-conformance/) for the normative event semantics.
 
@@ -193,15 +66,7 @@ On the wallet (server) side, emit notifications with `notify(event, payload, tar
 
 Zod schemas are generated from OpenRPC specifications and exposed under `@sigilry/dapp/schemas`:
 
-```ts
-import {
-  StatusEventSchema,
-  JsPrepareSubmissionRequestSchema,
-  type StatusEvent,
-} from "@sigilry/dapp/schemas";
-
-const status = StatusEventSchema.parse(data);
-```
+<Snippet path="dapp/schemas.ts" />
 
 `SignMessageResultSchema` requires `signature` and accepts optional `signedBy`,
 `publicKey` (base64 DER SPKI), `signingAlgorithmSpec` (`"ed25519" | "ecdsa-sha256"`),

@@ -70,11 +70,11 @@ const ctx: CantonContextValue = {
 
 - **Push events** (`3.0`, `@sigilry/dapp`): `statusChanged` (a CIP-103 §4.2.2 sync event) and
   `connected` (the CIP-103 login-flow event) join the existing `accountsChanged` / `txChanged` on
-  `provider.on()`. See [CIP-103 Conformance](/concepts/cip-103-conformance/).
+  `provider.on()`. See [CIP-103 Conformance](../../concepts/cip-103-conformance/).
 - **Discovery subpath** (`3.1`, `@sigilry/dapp`): `@sigilry/dapp/discovery` exposes
   `requestProviders`, `announceProvider`, `createDiscoveryStore`, and `createProvider`, plus inbound
   transport notification support so discovered providers deliver push events automatically. See
-  [Provider Discovery](/concepts/discovery/).
+  [Provider Discovery](../../concepts/discovery/).
 - **React discovery** (`3.1`, `@sigilry/react`): `useDiscovery`, `WalletPicker`, and a controlled
   `provider` prop on `CantonReactProvider`, plus `onStatusChanged` / `onConnected` subscriptions on
   `useCanton()`.

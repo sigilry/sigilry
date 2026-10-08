@@ -11,8 +11,7 @@
     "check": "yarn check-deps && yarn typecheck && yarn lint && yarn format:check && yarn knip && yarn build && yarn test",
     "build": "turbo run build --filter=!@sigilry/docs --filter=!@sigilry/demo-app",
     "test": "turbo run test --filter=!@sigilry/docs --filter=!@sigilry/demo-app",
-    "typecheck": "tsgo --project tsconfig.json",
-    "typecheck:tsc": "turbo run typecheck",
+    "typecheck": "turbo run typecheck --filter=!@sigilry/demo-app",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
     "format": "oxfmt --write .",
@@ -28,7 +27,6 @@
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.0",
-    "@typescript/native-preview": "^7.0.0-dev.20260116.1",
     "check-dependency-version-consistency": "^5.0.1",
     "jscpd": "^4.0.7",
     "knip": "^5.81.0",

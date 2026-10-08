@@ -34,7 +34,7 @@ The two halves sit at different standards levels, and this spec keeps them disti
 **Status:** Implemented — shipped in `@sigilry/dapp@3.1.0`. Acceptance validated by
 `packages/dapp/__tests__/discovery-{store,utils,provider}.test.ts` (part of the 104-test dapp suite)
 and the canton-monorepo discovery e2e (`apps/playwright/tests/extension/dapp-discovery.spec.ts`).
-Authored against the wevm reference stack at `~/0xbigboss/wevm` (`mipd`, `viem`, `wagmi`).
+Authored against the wevm reference stack at the `wevm/mipd`, `wevm/viem`, and `wevm/wagmi` projects.
 
 ## Problem
 
@@ -67,7 +67,7 @@ sigilry).
 Add the missing **mipd tier** to `@sigilry/dapp` and the **notification leg** to its
 transport, modeled on the wevm stack (same authors as viem/wagmi):
 
-| wevm (`~/0xbigboss/wevm`)                                      | `@sigilry/dapp`                                          | Role                                           |
+| wevm reference projects                                        | `@sigilry/dapp`                                          | Role                                           |
 | -------------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------- |
 | `mipd` — `createStore`, `requestProviders`, `announceProvider` | **NEW** `src/discovery/`                                 | EIP-6963 / `canton:announceProvider` discovery |
 | `viem` — typed RPC client, transport, EIP-1193 provider        | existing `provider/`, `transport/`, `rpc/`, `generated/` | low-level primitives                           |
@@ -369,7 +369,7 @@ The push envelope reuses the existing `SPLICE_WALLET_REQUEST` type with **`id` a
 
 ## Cross-references
 
-- wevm reference: `~/0xbigboss/wevm/mipd/src/{store,utils,types,window}.ts`.
+- wevm reference: `wevm/mipd` project: `src/{store,utils,types,window}.ts` (external repository).
 - Event-channel prior art (Option A, **superseded**): `docs/cip103-sync-push-events-proposal.md`.
 - Upstream merge (Option B): `canton-network/wallet#1814` (merge `33788a79`).
 - Consumer / wallet side: Send Connect `apps/webext/SPEC.md`.

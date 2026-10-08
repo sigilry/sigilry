@@ -3,6 +3,8 @@ title: Quick Start
 description: Go from zero to a working connection in under 10 minutes.
 ---
 
+import Snippet from "../../../components/Snippet.astro";
+
 This guide shows two paths:
 
 - **Vanilla**: Use `window.canton` directly with `@sigilry/dapp`.
@@ -48,74 +50,15 @@ if (!window.canton) {
 
 ## 3. Make your first request
 
-```ts
-async function connectAndListAccounts() {
-  if (!window.canton) {
-    throw new Error("Canton provider not available");
-  }
-
-  const status = await window.canton.request({ method: "status" });
-  if (!status.connection.isConnected) {
-    await window.canton.request({ method: "connect" });
-  }
-
-  const accounts = await window.canton.request({ method: "listAccounts" });
-  console.log("Accounts:", accounts);
-  return accounts;
-}
-```
+<Snippet path="start/connect.ts" />
 
 ## 4. React setup (recommended for React apps)
 
-```tsx
-import { CantonReactProvider } from "@sigilry/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-const queryClient = new QueryClient();
-
-export function AppRoot() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <CantonReactProvider>
-        <App />
-      </CantonReactProvider>
-    </QueryClientProvider>
-  );
-}
-```
+<Snippet path="react/app-root.tsx" />
 
 ## 5. Connect and show accounts
 
-```tsx
-import { useAccounts, useConnect, useDisconnect } from "@sigilry/react";
-
-export function WalletPanel() {
-  const { connect, isPending: isConnecting } = useConnect();
-  const { disconnect, isPending: isDisconnecting } = useDisconnect();
-  const { data: accounts, isConnected } = useAccounts();
-
-  if (!isConnected) {
-    return (
-      <button onClick={connect} disabled={isConnecting}>
-        {isConnecting ? "Connecting..." : "Connect"}
-      </button>
-    );
-  }
-
-  return (
-    <div>
-      <button onClick={disconnect} disabled={isDisconnecting}>
-        Disconnect
-      </button>
-      <ul>
-        {accounts.map((account) => (
-          <li key={account.partyId}>{account.hint}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-```
+<Snippet path="react/wallet-panel.tsx" />
 
 ## 6. What success looks like
 

@@ -2,6 +2,7 @@ import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import sitemap from "@astrojs/sitemap";
 import starlightLlmsTxt from "@0xbigboss/starlight-llms-txt";
+import starlightLinksValidator from "starlight-links-validator";
 import starlightTypeDoc, { typeDocSidebarGroup } from "starlight-typedoc";
 
 const SITE_URL = process.env.DOCS_SITE_URL ?? "https://sigilry.org";
@@ -34,96 +35,33 @@ export default defineConfig({
         },
       },
       plugins: [
+        starlightLinksValidator({ errorOnRelativeLinks: false }),
         starlightLlmsTxt({
-          details: `## What sigilry is
+          details: `Sigilry is a [CIP-103](https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md)-compliant dApp connectivity library for Canton Network. CIP-103 is the approved Canton standard for dApp ↔ wallet JSON-RPC. Sigilry implements the CIP-103 dApp API as typed TypeScript clients and servers, ships Zod schemas generated from the CIP-103 OpenRPC spec, and exposes React Query hooks.
 
-Sigilry is a [CIP-103](https://github.com/canton-foundation/cips/blob/main/cip-0103/cip-0103.md)-compliant dApp connectivity library for Canton Network. CIP-103 is the approved Canton standard for dApp ↔ wallet JSON-RPC. Sigilry implements the CIP-103 dApp API as typed TypeScript clients/servers, ships generated Zod schemas for runtime validation, and exposes React Query hooks.
+Packages:
 
-## Packages
-
-- **@sigilry/dapp**: CIP-103 provider interface (\`SpliceProvider\`), RPC client/server, message schemas, transports (Window, HTTP, WS).
-- **@sigilry/react**: React Query hooks (useConnect, useAccounts, useSession) and CantonReactProvider on top of \`@sigilry/dapp\`.
+- **@sigilry/dapp** (3.x): CIP-103 provider interface (\`SpliceProvider\`), RPC client/server, message schemas, provider discovery, and the \`WindowTransport\` and \`WalletConnectTransport\` transports.
+- **@sigilry/react** (3.x): \`CantonReactProvider\` and React Query hooks such as \`useConnect\`, \`useAccounts\`, \`useLedgerApi\`, and \`useDiscovery\`.
+- **@sigilry/canton-json-api** (1.x): Canton JSON Ledger API v2 types and Zod schemas for \`ledgerApi\` bodies.
 - **@sigilry/cli**: TypeScript codegen from DAML DARs.
-- **@sigilry/splice-dars**: Vendored Splice DAR files with typed path exports for Canton Network development.
+- **@sigilry/splice-dars**: Vendored Splice DAR files with typed path exports.
 
-## Quick integration
+Integration notes:
 
-\`\`\`ts
-async function connect() {
-  const status = await window.canton.request({ method: "status" });
-  if (!status.connection.isConnected) {
-    await window.canton.request({ method: "connect" });
-  }
-  return await window.canton.request({ method: "listAccounts" });
-}
-\`\`\`
-
-## CIP-103 method surface (sigilry implementation)
-
-| CIP-103 method | Description |
-|--------|-------------|
-| status | Get connection state |
-| connect | Initiate wallet connection (returns ConnectResult) |
-| disconnect | End wallet session |
-| isConnected | Check connection state without prompting |
-| listAccounts | Get authorized accounts |
-| getPrimaryAccount | Get the primary account |
-| getActiveNetwork | Get the active Canton network |
-| prepareExecute | Prepare, sign, and execute a transaction |
-| prepareExecuteAndWait | prepareExecute, then await completion |
-| signMessage | Sign an arbitrary message |
-| ledgerApi | Pass-through to Canton Ledger API v2 |
-| accountsChanged (event) | Subscribed via provider.on |
-| txChanged (event) | Subscribed via provider.on |
-
-See [CIP-103 Conformance](concepts/cip-103-conformance/) for the per-method conformance table.
-
-## Architecture
-
-\`\`\`
-dApp UI
-  -> window.canton (CIP-103 provider; EIP-1193 object shape)
-  -> JSON-RPC (CIP-103 OpenRPC schema + Zod validation)
-  -> WindowTransport (postMessage)
-  -> Wallet extension (RPC server)
-  -> Canton Ledger API / DAML
-\`\`\`
-
-## React usage
-
-\`\`\`tsx
-import { CantonReactProvider, useConnect, useAccounts } from "@sigilry/react";
-
-function App() {
-  const { connect, isPending } = useConnect();
-  const { data: accounts, isConnected } = useAccounts();
-
-  if (!isConnected) return <button onClick={connect}>Connect</button>;
-  return <div>Connected: {accounts[0]?.hint}</div>;
-}
-\`\`\`
-
-## Documentation
-
-- [Getting Started](getting-started/introduction/): Overview and quick start guide
-- [Send Connect Testnet](guides/send-connect-testnet/): Install the extension and select Canton testnet
-- [Verify signMessage](guides/verify-sign-message/): Send hex DER signatures, WebCrypto, and delegated signing keys
-- [Read Holdings](guides/read-holdings/): Query token holdings through ledgerApi
-- [Architecture](concepts/architecture/): How the pieces fit together
-- [CIP-103 Conformance](concepts/cip-103-conformance/): Per-method conformance status, deviations, versioning
-- [Transports](concepts/transports/): WindowTransport, HTTP, WebSocket
-- [RPC Protocol](concepts/rpc-protocol/): JSON-RPC and Zod validation
-- [@sigilry/dapp](packages/dapp/): CIP-103 provider and RPC client
-- [@sigilry/react](packages/react/): React hooks and context
-- [@sigilry/cli](packages/cli/): TypeScript codegen from DAML
-- [@sigilry/splice-dars](packages/splice-dars/): Vendored Splice DAR files
-- [API Reference](api-reference/readme/): Full TypeScript API documentation
+- Wallet extensions inject the provider at \`window.canton\`. Import \`@sigilry/dapp/browser-globals\` to type it; it is optional because no wallet may be installed.
+- Code samples on package, guide, and concept pages are compiled against the current packages in CI. Migration guides show historical APIs on purpose.
+- Each page is available as Markdown by appending \`.md\` to its URL or by requesting it with \`Accept: text/markdown\`.
+- The per-method CIP-103 surface, including push events, is in [CIP-103 Conformance](concepts/cip-103-conformance/). Full signatures are in the [API Reference](api-reference/readme/).
 `,
           contentNegotiation: true,
+          promote: ["index", "getting-started/**", "guides/**", "packages/**"],
+          demote: ["migrations/**", "api-reference/**"],
         }),
         starlightTypeDoc({
           entryPoints: [
             "../packages/dapp/src/index.ts",
+            "../packages/dapp/src/discovery/index.ts",
             "../packages/react/src/index.ts",
             "../packages/cli/src/index.ts",
             "../packages/splice-dars/src/index.ts",
@@ -137,6 +75,10 @@ function App() {
           typeDoc: {
             publicPath: undefined, // Use relative links for versioned base path compatibility
             plugin: ["typedoc-plugin-frontmatter", "./scripts/typedoc-slug-plugin.mjs"],
+            // starlight-typedoc deletes nested `README.md` pages (its match is case-sensitive),
+            // which leaves the root index linking to missing module pages. Lowercase keeps
+            // them and preserves the existing `/readme/` URLs.
+            entryFileName: "readme",
           },
         }),
       ],
@@ -148,6 +90,7 @@ function App() {
             { label: "Introduction", slug: "getting-started/introduction" },
             { label: "Quick Start", slug: "getting-started/quick-start" },
             { label: "Demo App", slug: "getting-started/demo-app" },
+            { label: "Choosing a Canton dApp SDK", slug: "compare/canton-dapp-sdks" },
           ],
         },
         {
@@ -165,6 +108,7 @@ function App() {
             { label: "@sigilry/react", slug: "packages/react" },
             { label: "@sigilry/cli", slug: "packages/cli" },
             { label: "@sigilry/splice-dars", slug: "packages/splice-dars" },
+            { label: "@sigilry/canton-json-api", slug: "packages/canton-json-api" },
           ],
         },
         {
@@ -190,7 +134,12 @@ function App() {
       components: {
         Footer: "./src/components/Footer.astro",
       },
-      customCss: ["./src/styles/custom.css"],
+      customCss: [
+        "@fontsource-variable/dm-sans",
+        "@fontsource-variable/jetbrains-mono",
+        "./src/styles/custom.css",
+      ],
+      routeMiddleware: "./src/routeData.ts",
       editLink: {
         baseUrl: "https://github.com/sigilry/sigilry/edit/main/docs/",
       },
