@@ -25,7 +25,11 @@ export default defineConfig({
         alt: "Sigilry",
         replacesTitle: true,
       },
-      favicon: "/favicon.png",
+      favicon: "/favicon.svg",
+      head: [
+        // PNG fallback for browsers without SVG favicons; the sizes hint keeps the SVG preferred.
+        { tag: "link", attrs: { rel: "icon", href: `${base}favicon.png`, sizes: "32x32" } },
+      ],
       disable404Route: true,
       expressiveCode: {
         themes: ["vitesse-dark", "vitesse-light"],
